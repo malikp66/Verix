@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { doc, getDocFromServer, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -8,99 +8,82 @@ import { doc, getDocFromServer, setDoc, serverTimestamp } from 'firebase/firesto
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signIn: () => Promise<void>;
-  logOut: () => Promise<void>;
-  aiCredits: number;
-  plan: string;
+  login: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
-  signIn: async () => {},
-  logOut: async () => {},
-  aiCredits: 0,
-  plan: 'free'
+  login: async () => {},
+  logout: async () => {},
 });
 
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [aiCredits, setAiCredits] = useState(5); // Default 5 credits for free
-  const [plan, setPlan] = useState('free');
 
   useEffect(() => {
-    // Initial connection test
-    const testConnection = async () => {
+    // Validate connection
+    async function testConnection() {
       try {
         await getDocFromServer(doc(db, 'test', 'connection'));
       } catch (error) {
-        if (error instanceof Error && error.message.includes('the client is offline')) {
+        if(error instanceof Error && error.message.includes('the client is offline')) {
           console.error("Please check your Firebase configuration.");
         }
       }
-    };
+    }
     testConnection();
 
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setUser(user);
+      setLoading(false);
       
-      if (currentUser) {
-        // Fetch or create user profile
+      if (user) {
         try {
-          const userDoc = await getDocFromServer(doc(db, 'users', currentUser.uid));
-          if (!userDoc.exists()) {
-            await setDoc(doc(db, 'users', currentUser.uid), {
-              email: currentUser.email,
-              plan: 'free',
-              aiCredits: 5,
-              createdAt: serverTimestamp()
+          const userRef = doc(db, 'users', user.uid);
+          const snap = await getDocFromServer(userRef);
+          if (!snap.exists()) {
+            await setDoc(userRef, {
+              email: user.email,
+              displayName: user.displayName,
+              photoURL: user.photoURL,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
             });
-            setPlan('free');
-            setAiCredits(5);
-          } else {
-            const data = userDoc.data();
-            setPlan(data.plan || 'free');
-            setAiCredits(data.aiCredits ?? 0);
           }
         } catch (error) {
-           console.error("Error fetching user profile:", error);
+          console.error("Error syncing user to Firestore", error);
         }
-      } else {
-        setPlan('free');
-        setAiCredits(0);
       }
-      
-      setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  const signIn = async () => {
-    const provider = new GoogleAuthProvider();
+  const login = async () => {
     try {
+      const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     } catch (error) {
-      console.error("Authentication Error", error);
+      console.error('Login failed:', error);
     }
   };
 
-  const logOut = async () => {
+  const logout = async () => {
     try {
       await signOut(auth);
     } catch (error) {
-      console.error("Log out error", error);
+      console.error('Logout failed:', error);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, logOut, aiCredits, plan }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export const useAuth = () => useContext(AuthContext);

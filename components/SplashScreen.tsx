@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Shield } from 'lucide-react';
-import { DiaTextReveal } from './ui/dia-text-reveal';
 
 export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   const [loadingText, setLoadingText] = useState('Initializing Threat Intelligence...');
@@ -114,7 +113,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
           className="text-center"
         >
           <h1 className="text-5xl font-display font-medium tracking-tight text-white mb-2" style={{ letterSpacing: '-0.02em' }}>
-            <DiaTextReveal text="VERIX" textColor="white" colors={['#B6FF3B', '#4DA8FF', '#FFB547']} />
+            VERIX
           </h1>
           <p className="text-[10px] font-mono tracking-[0.3em] text-[#4DA8FF] uppercase mb-4 opacity-80 pl-1">
             Verifikasi Risiko Digital

@@ -1,49 +1,99 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Global safety net: default deny
     match /{document=**} {
       allow read, write: if false;
     }
 
+    // ---------- GLOBAL HELPERS ----------
     function isSignedIn() {
       return request.auth != null;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+    
+    function incoming() {
+      return request.resource.data;
     }
     
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    function incoming() {
-      return request.resource.data;
+    // ---------- ENTITY: User ----------
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'createdAt', 'updatedAt']) 
+        && data.email is string && data.email.size() <= 200
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.get('displayName', '') is string
+        && data.get('photoURL', '') is string;
+    }
+
+    function isUpdateValidUser(data) {
+      return data.email is string && data.email.size() <= 200
+        && data.updatedAt == request.time
+        && data.createdAt == existing().createdAt
+        && data.get('displayName', '') is string
+        && data.get('photoURL', '') is string;
     }
 
     match /users/{userId} {
-      function isValidUser(data) {
-        return data.keys().hasAll(['email', 'plan', 'aiCredits', 'createdAt']) &&
-               data.email is string && data.email.size() <= 256 &&
-               data.plan is string && data.plan in ['free', 'plus', 'pro'] &&
-               data.aiCredits is number &&
-               data.createdAt == request.time;
-      }
+      allow get: if isSignedIn() && request.auth.uid == userId;
+      // No allow list for users to prevent PII leak
+      allow create: if isSignedIn() 
+                    && request.auth.uid == userId 
+                    && isValidId(userId)
+                    && isValidUser(incoming())
+                    && incoming().keys().size() <= 5; // email, createdAt, updatedAt, displayName, photoURL
+                    
+      allow update: if isSignedIn() 
+                    && request.auth.uid == userId 
+                    && isUpdateValidUser(incoming())
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt']);
+    }
+
+    // ---------- ENTITY: Report ----------
+    function isValidReport(data) {
+      return data.keys().hasAll(['userId', 'title', 'type', 'description', 'status', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && data.title is string && data.title.size() <= 250
+        && data.type is string && data.type.size() <= 100
+        && data.description is string && data.description.size() <= 5000
+        && data.status in ['pending', 'verified', 'rejected']
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isUpdateValidReport(data) {
+      return data.userId == existing().userId
+        && data.title is string && data.title.size() <= 250
+        && data.type is string && data.type.size() <= 100
+        && data.description is string && data.description.size() <= 5000
+        && data.status in ['pending', 'verified', 'rejected']
+        && data.createdAt == existing().createdAt
+        && data.updatedAt == request.time;
+    }
+
+    match /reports/{reportId} {
+      allow get: if true; // Public read for reports may be needed? Wait, maybe only signed in or public to show in feed
+      allow list: if isSignedIn(); // Safe since no PII, but wait, should we restrict it? Assuming feed shows reports.
+      allow create: if isSignedIn()
+                    && isValidId(reportId)
+                    && isValidReport(incoming())
+                    && incoming().status == 'pending'  // users can only create pending reports
+                    && incoming().keys().size() == 7;
+                    
+      allow update: if isSignedIn()
+                    && existing().userId == request.auth.uid
+                    && isUpdateValidReport(incoming())
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'type', 'description', 'updatedAt']);
       
-      allow read: if isSignedIn() && request.auth.uid == userId;
-      allow create: if isSignedIn() && request.auth.uid == userId && isValidId(userId) && isValidUser(incoming());
-      // Updates generally handled by billing backend, but users could update specific fields if needed
-      allow update: if isSignedIn() && request.auth.uid == userId && incoming().diff(resource.data).affectedKeys().hasOnly(['plan']);
-    }
-
-    match /community_reports/{reportId} {
-      allow read: if true;
-      allow create: if isSignedIn() && isValidId(reportId) &&
-                    incoming().keys().hasAll(['userId', 'type', 'content', 'createdAt']) &&
-                    incoming().userId == request.auth.uid &&
-                    incoming().type is string && incoming().type.size() <= 50 &&
-                    incoming().content is string && incoming().content.size() <= 5000 &&
-                    incoming().createdAt == request.time;
-    }
-
-    match /scan_results/{scanId} {
-      allow read: if true;
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
     }
   }
 }
