@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['email', 'plan', 'aiCredits', 'createdAt']) &&
+               data.email is string && data.email.size() <= 256 &&
+               data.plan is string && data.plan in ['free', 'plus', 'pro'] &&
+               data.aiCredits is number &&
+               data.createdAt == request.time;
+      }
+      
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidId(userId) && isValidUser(incoming());
+      // Updates generally handled by billing backend, but users could update specific fields if needed
+      allow update: if isSignedIn() && request.auth.uid == userId && incoming().diff(resource.data).affectedKeys().hasOnly(['plan']);
+    }
+
+    match /community_reports/{reportId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(reportId) &&
+                    incoming().keys().hasAll(['userId', 'type', 'content', 'createdAt']) &&
+                    incoming().userId == request.auth.uid &&
+                    incoming().type is string && incoming().type.size() <= 50 &&
+                    incoming().content is string && incoming().content.size() <= 5000 &&
+                    incoming().createdAt == request.time;
+    }
+
+    match /scan_results/{scanId} {
+      allow read: if true;
+    }
+  }
+}

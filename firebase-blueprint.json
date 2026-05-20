@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user plan and credit balance",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "plan": {
+          "type": "string",
+          "enum": ["free", "plus", "pro"],
+          "description": "Subscription plan level"
+        },
+        "aiCredits": {
+          "type": "number",
+          "description": "Remaining AI analysis credits for the month"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "plan", "aiCredits", "createdAt"]
+    },
+    "CommunityReport": {
+      "title": "Community Report",
+      "description": "Scam or threat report submitted by users",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "risk_score": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "type", "content", "createdAt"]
+    },
+    "ScanResult": {
+      "title": "Scan Result",
+      "description": "Cached result of a URL, APK, or QR scan",
+      "type": "object",
+      "properties": {
+        "targetUrl": {
+          "type": "string"
+        },
+        "targetType": {
+          "type": "string"
+        },
+        "isThreat": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "cachedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["targetUrl", "targetType", "isThreat", "cachedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile documents"
+    },
+    "/community_reports/{reportId}": {
+      "schema": { "$ref": "#/entities/CommunityReport" },
+      "description": "Publicly visible community reports"
+    },
+    "/scan_results/{scanId}": {
+      "schema": { "$ref": "#/entities/ScanResult" },
+      "description": "Global cache for threat scans"
+    }
+  }
+}
