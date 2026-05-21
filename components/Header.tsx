@@ -6,15 +6,13 @@ import { Shield, ChevronDown, Menu, X, Sparkles } from 'lucide-react';
 import { useIntel } from './IntelligenceProvider';
 import { useAuth } from './FirebaseProvider';
 import { useAICredits } from '@/hooks/use-ai-credits';
-import { CreditTopUpModal } from './CreditTopUpModal';
 
 export function Header({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (id: string) => void }) {
   const [scrolled, setScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const intel = useIntel();
   const { user, login } = useAuth();
-  const { credits, isCreditLoading } = useAICredits();
-  const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const { credits, isCreditLoading, topUpCredits } = useAICredits();
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', sub: 'System Overview' },
@@ -141,12 +139,12 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
                    <span className="text-emerald-500/70 hidden xl:inline">AI Credits</span>
                  </span>
                  <button 
-                    onClick={() => setShowTopUpModal(true)} 
-                    title="Top Up AI Credits" 
-                    className="ml-1 px-1.5 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[9px] font-bold font-mono rounded transition-all active:scale-95 flex items-center justify-center cursor-pointer"
-                  >
-                    + TOP UP
-                  </button>
+                   onClick={() => topUpCredits(10)} 
+                   title="Top Up 10 Kredit AI" 
+                   className="ml-1 px-1.5 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[9px] font-bold font-mono rounded transition-all active:scale-95 flex items-center justify-center cursor-pointer"
+                 >
+                   + TOP UP
+                 </button>
               </div>
             </div>
 
@@ -305,7 +303,6 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
           </>
         )}
       </AnimatePresence>
-      <CreditTopUpModal isOpen={showTopUpModal} onClose={() => setShowTopUpModal(false)} />
     </>
   );
 }
