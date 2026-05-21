@@ -12,7 +12,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   const texts = [
     'Initializing Threat Intelligence...',
     'Syncing Scam Database...',
-    'Verifying Security Channels...',
+    'Verifying Secure Pathways...',
     'Activating AI Analysis Engine...',
     'Connecting to Threat Network...',
     'Monitoring Digital Threats...'
@@ -117,7 +117,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
             <DiaTextReveal text="VERIX" duration={1.5} delay={0.2} colors={['#b6ff3b', '#4da8ff', '#b6ff3b']} textColor="#ffffff" />
           </h1>
           <p className="text-[10px] font-mono tracking-[0.3em] text-[#4DA8FF] uppercase mb-4 opacity-80 pl-1">
-            Verifikasi Risiko Digital
+            Digital Risk Verification
           </p>
         </motion.div>
 
@@ -128,7 +128,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
           transition={{ duration: 0.8, delay: 0.4 }}
           className="text-neutral-400 font-medium tracking-wide mb-16 text-sm"
         >
-          &quot;Analisis Ancaman Siber Terkalibrasi.&quot;
+          &quot;Calibrated Cyber Threat Analysis.&quot;
         </motion.p>
 
         {/* Loading Module */}

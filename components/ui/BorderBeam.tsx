@@ -23,6 +23,14 @@ export function BorderBeam({
       className={cn("absolute inset-0 pointer-events-none rounded-[inherit] z-20", className)}
       style={{
         padding: `${borderWidth}px`,
+        // Standard CSS mask properties (modern browsers)
+        maskImage: "linear-gradient(#fff 0 0), linear-gradient(#fff 0 0)",
+        maskClip: "content-box, border-box",
+        maskComposite: "exclude",
+        // Webkit-prefixed properties (older Safari/Chrome versions)
+        WebkitMaskImage: "linear-gradient(#fff 0 0), linear-gradient(#fff 0 0)",
+        WebkitMaskClip: "content-box, border-box",
+        WebkitMaskComposite: "destination-out",
       }}
     >
       <style>{`
@@ -44,16 +52,6 @@ export function BorderBeam({
           }}
         />
       </div>
-      {/* Standard CSS Mask to crop out the inside, leaving only the thin border width */}
-      <div 
-        className="absolute inset-0 rounded-[inherit] border border-transparent pointer-events-none"
-        style={{
-          background: "clip-box",
-          WebkitMask: "linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)",
-          WebkitMaskComposite: "destination-out",
-          maskComposite: "exclude",
-        }}
-      />
     </div>
   );
 }

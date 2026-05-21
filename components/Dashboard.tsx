@@ -51,7 +51,7 @@ function parseRegionFromTitle(title: string, link: string): string {
   if (lower.includes("sulawesi selatan") || lower.includes("sulsel") || lower.includes("makassar")) return "Sulawesi Selatan";
   if (lower.includes("bali") || lower.includes("denpasar") || lower.includes("kuta")) return "Bali";
   if (lower.includes("kalimantan timur") || lower.includes("kaltim") || lower.includes("samarinda") || lower.includes("balikpapan")) return "Kalimantan Timur";
-  
+
   const INDO_REGIONS_LIST = ["Jakarta", "Jawa Barat", "Jawa Timur", "Jawa Tengah", "Sumatera Utara", "Sulawesi Selatan", "Bali", "Kalimantan Timur"];
   let hash = 0;
   for (let i = 0; i < title.length; i++) {
@@ -133,7 +133,7 @@ function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </div>
-            <span className="text-[10px] md:text-xs font-mono text-emerald-400 font-medium tracking-widest uppercase">REALTIME THREAT NETWORK ACTIVE</span>
+            <span className="text-[10px] md:text-xs font-mono text-emerald-400 font-medium tracking-widest uppercase">JARINGAN ANCAMAN REALTIME AKTIF</span>
           </motion.div>
 
           <motion.h1
@@ -142,8 +142,8 @@ function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
             transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
             className="text-5xl sm:text-6xl md:text-8xl font-display font-medium tracking-tight mb-8 max-w-6xl leading-[1.05]"
           >
-            Detect Scams <br className="hidden md:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-neutral-500">Before They Detect You.</span>
+            Deteksi Penipuan <br className="hidden md:block" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-neutral-500">Sebelum Mereka Mendeteksi Anda.</span>
           </motion.h1>
 
           <motion.p
@@ -152,7 +152,7 @@ function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
             className="text-lg md:text-xl text-neutral-400 max-w-3xl mb-14 leading-relaxed font-light"
           >
-            VERIX menggabungkan AI dan sistem keamanan nyata untuk melindungi Anda dari phishing, penipuan, dan ancaman digital — secara real-time.
+            VERIX menggabungkan AI dan sistem keamanan nyata untuk melindungi Anda dari phishing, penipuan, dan ancaman digital secara real-time.
           </motion.p>
 
           <motion.div
@@ -340,10 +340,10 @@ function LiveScamRadar() {
                         {alert.type}
                       </span>
                       <span className={`text-[9px] font-mono px-2 py-0.5 rounded border ${alert.source.includes('turnbackhoax')
-                          ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                          : alert.source.includes('kominfo')
-                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                            : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                        ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                        : alert.source.includes('kominfo')
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                         }`}>
                         {getSourceLabel(alert.source)}
                       </span>
@@ -381,7 +381,7 @@ function BentoGrid() {
       <div className="text-center mb-24 relative">
         <div className="absolute inset-0 bg-emerald-500/5 blur-[100px] w-80 h-80 mx-auto rounded-full -top-20 pointer-events-none" />
         <span className="inline-flex items-center gap-2 bg-neutral-900/80 backdrop-blur border border-neutral-800 rounded-full px-4 py-1.5 mb-6 text-[10px] font-mono text-emerald-400 font-medium tracking-wider uppercase">
-          Unified Security Features
+          Fitur Keamanan Terpadu
         </span>
         <h2 className="text-4xl md:text-6xl font-display font-medium tracking-tight mb-6">
           Satu Platform. Perlindungan Total.
@@ -392,7 +392,7 @@ function BentoGrid() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-auto">
-        
+
         {/* 1. Real-Time Threat Detection */}
         <div className="group relative rounded-3xl border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800/85 transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden md:col-span-2 min-h-[380px]">
           <BorderBeam colorFrom="#10b981" colorTo="#3b82f6" duration={10} borderWidth={1.5} />
@@ -401,9 +401,9 @@ function BentoGrid() {
               <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
                 <Radar className="w-5 h-5 text-emerald-400" />
               </div>
-              <span className="text-xs font-mono text-emerald-400 uppercase tracking-widest font-semibold">01. ENGINE CORE</span>
-              <h3 className="text-2xl font-display font-medium text-white tracking-tight mt-2 mb-3">Real-Time Threat Detection</h3>
-              <p className="text-neutral-400 text-sm mb-4">"Scan anything. Know instantly."</p>
+              <span className="text-xs font-mono text-emerald-400 uppercase tracking-widest font-semibold">01. INTI MESIN</span>
+              <h3 className="text-2xl font-display font-medium text-white tracking-tight mt-2 mb-3">Deteksi Ancaman Real-Time</h3>
+              <p className="text-neutral-400 text-sm mb-4">"Pindai apa saja. Ketahui seketika."</p>
               <ul className="space-y-2 text-neutral-500 text-xs">
                 <li className="flex items-center gap-2">✓ Analisis URL, teks, dan screenshot dalam hitungan detik</li>
                 <li className="flex items-center gap-2">✓ Hybrid engine (rule-based + AI) untuk akurasi tinggi</li>
@@ -411,23 +411,59 @@ function BentoGrid() {
                 <li className="flex items-center gap-2">✓ Tidak bergantung sepenuhnya pada AI (anti-halusinasi)</li>
               </ul>
             </div>
-            
+
             {/* Visual element: scanning mock */}
             <div className="bg-neutral-950/80 border border-neutral-900/40 p-4 rounded-xl flex items-center justify-between text-xs font-mono mt-auto">
               <div className="flex items-center gap-3">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                 <span className="text-neutral-400 truncate max-w-[200px] sm:max-w-xs">https://bca-klik-auth.secure-login.id</span>
               </div>
-              <span className="text-emerald-400 font-bold">PHISHING SUSPECT</span>
+              <span className="text-emerald-400 font-bold">TERDUGA PHISHING</span>
             </div>
 
             <p className="text-[11px] text-neutral-600 font-mono italic mt-4">
-              "Bukan sekadar AI — ini sistem analisis keamanan."
+              "Bukan sekadar AI ini sistem analisis keamanan."
             </p>
           </div>
         </div>
 
-        {/* 5. Cybersecurity Reports */}
+        {/* 2. VERIX Pulse (Live Threat Intelligence) */}
+        <div className="group relative rounded-3xl border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800/85 transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden md:col-span-1 min-h-[380px]">
+          <Meteors number={10} />
+          <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
+                <Radar className="w-5 h-5 text-amber-400 animate-pulse" />
+              </div>
+              <span className="text-xs font-mono text-amber-400 uppercase tracking-widest font-semibold">02. DENYUT ANCAMAN</span>
+              <h3 className="text-2xl font-display font-medium text-white tracking-tight mt-2 mb-3">VERIX Pulse</h3>
+              <p className="text-neutral-400 text-sm mb-4">"Lihat apa yang sedang terjadi."</p>
+              <ul className="space-y-2 text-neutral-500 text-xs">
+                <li className="flex items-center gap-2">✓ Feed ancaman real-time (Abuse.ch + PhishTank + lokal)</li>
+                <li className="flex items-center gap-2">✓ Hotspot scam di Indonesia</li>
+                <li className="flex items-center gap-2">✓ AI situational report harian</li>
+              </ul>
+            </div>
+
+            {/* Live Indicator */}
+            <div className="flex items-center gap-4 bg-neutral-950/60 p-3.5 border border-neutral-900 rounded-xl mt-auto z-10">
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+              </span>
+              <div className="text-left">
+                <p className="text-[10px] font-mono text-neutral-400 uppercase">ANCAMAN AKTIF TERDETEKSI</p>
+                <p className="text-xs font-semibold text-white truncate max-w-[150px]">Phishing Tagihan Listrik PLN (.APK)</p>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-neutral-600 font-mono italic mt-4">
+              "Radar ancaman digital."
+            </p>
+          </div>
+        </div>
+
+        {/* 3. Cybersecurity Reports */}
         <ShineCardContainer className="col-span-1 md:col-span-1 min-h-[380px]">
           <ShineCard glowColor="rgba(16, 185, 129, 0.1)">
             <div className="flex flex-col h-full justify-between">
@@ -435,9 +471,9 @@ function BentoGrid() {
                 <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
                   <BarChart3 className="w-5 h-5 text-teal-400" />
                 </div>
-                <span className="text-xs font-mono text-teal-400 uppercase tracking-widest font-semibold">02. INTELLIGENCE</span>
-                <h3 className="text-xl font-display font-medium text-white tracking-tight mt-2 mb-2">Cybersecurity Reports</h3>
-                <p className="text-neutral-400 text-xs mb-4">"Every scan becomes intelligence."</p>
+                <span className="text-xs font-mono text-teal-400 uppercase tracking-widest font-semibold">03. INTELIJEN</span>
+                <h3 className="text-xl font-display font-medium text-white tracking-tight mt-2 mb-2">Laporan Keamanan Siber</h3>
+                <p className="text-neutral-400 text-xs mb-4">"Setiap pindaian menjadi intelijen."</p>
                 <ul className="space-y-1.5 text-neutral-500 text-[11px]">
                   <li className="flex items-center gap-1">✓ Riwayat scan lengkap dengan risk scoring</li>
                   <li className="flex items-center gap-1">✓ Detail red flags & indikator teknis</li>
@@ -445,7 +481,7 @@ function BentoGrid() {
                   <li className="flex items-center gap-1">✓ Insight tren serangan personal</li>
                 </ul>
               </div>
-              
+
               <p className="text-[10px] text-neutral-600 font-mono italic mt-6">
                 "Dari satu scan → jadi insight."
               </p>
@@ -453,33 +489,7 @@ function BentoGrid() {
           </ShineCard>
         </ShineCardContainer>
 
-        {/* 6. Browser Extension (Coming Soon) */}
-        <ShineCardContainer className="col-span-1 md:col-span-1 min-h-[380px]">
-          <ShineCard glowColor="rgba(59, 130, 246, 0.1)">
-            <div className="flex flex-col h-full justify-between">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
-                  <Link2 className="w-5 h-5 text-blue-400" />
-                </div>
-                <span className="text-xs font-mono text-blue-400 uppercase tracking-widest font-semibold">03. ADDON</span>
-                <h3 className="text-xl font-display font-medium text-white tracking-tight mt-2 mb-2">Browser Extension</h3>
-                <p className="text-neutral-400 text-xs mb-4">"Protection, wherever you browse."</p>
-                <ul className="space-y-1.5 text-neutral-500 text-[11px]">
-                  <li className="flex items-center gap-1">✓ Deteksi phishing saat browsing</li>
-                  <li className="flex items-center gap-1">✓ Warning real-time sebelum klik link</li>
-                  <li className="flex items-center gap-1">✓ Integrasi langsung dengan VERIX engine</li>
-                  <li className="flex items-center gap-1">✓ Lightweight & privacy-first</li>
-                </ul>
-              </div>
-
-              <p className="text-[10px] text-neutral-600 font-mono italic mt-6">
-                "Jangan tunggu kena dulu baru sadar."
-              </p>
-            </div>
-          </ShineCard>
-        </ShineCardContainer>
-
-        {/* 2. AI-Powered Explanation */}
+        {/* 4. AI-Powered Explanation */}
         <div className="group relative rounded-3xl border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800/85 transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden md:col-span-2 min-h-[380px]">
           <Spotlight fill="rgba(59, 130, 246, 0.12)" />
           <div className="relative z-10 flex flex-col h-full justify-between gap-6">
@@ -487,9 +497,9 @@ function BentoGrid() {
               <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
                 <Eye className="w-5 h-5 text-blue-400" />
               </div>
-              <span className="text-xs font-mono text-blue-400 uppercase tracking-widest font-semibold">04. EXPLAINABLE AI</span>
-              <h3 className="text-2xl font-display font-medium text-white tracking-tight mt-2 mb-3">AI-Powered Explanation</h3>
-              <p className="text-neutral-400 text-sm mb-4">"Understand the threat like an analyst."</p>
+              <span className="text-xs font-mono text-blue-400 uppercase tracking-widest font-semibold">04. AI PENJELASAN</span>
+              <h3 className="text-2xl font-display font-medium text-white tracking-tight mt-2 mb-3">Penjelasan Bertenaga AI</h3>
+              <p className="text-neutral-400 text-sm mb-4">"Pahami ancaman layaknya seorang analis."</p>
               <ul className="space-y-2 text-neutral-500 text-xs">
                 <li className="flex items-center gap-2">✓ Penjelasan detail kenapa suatu konten berbahaya</li>
                 <li className="flex items-center gap-2">✓ Breakdown taktik manipulasi (urgency, impersonation, dll)</li>
@@ -511,16 +521,16 @@ function BentoGrid() {
           </div>
         </div>
 
-        {/* 3. WhatsApp Security Assistant */}
+        {/* 5. WhatsApp Security Assistant */}
         <div className="group relative rounded-3xl border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800/85 transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden md:col-span-2 min-h-[380px]">
           <div className="relative z-10 flex flex-col h-full justify-between gap-6">
             <div>
               <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
                 <MessageSquare className="w-5 h-5 text-purple-400" />
               </div>
-              <span className="text-xs font-mono text-purple-400 uppercase tracking-widest font-semibold">05. BOT MESSENGER</span>
-              <h3 className="text-2xl font-display font-medium text-white tracking-tight mt-2 mb-3">WhatsApp Security Assistant</h3>
-              <p className="text-neutral-400 text-sm mb-4">"Forward. Scan. Stay safe."</p>
+              <span className="text-xs font-mono text-purple-400 uppercase tracking-widest font-semibold">05. BOT PESAN</span>
+              <h3 className="text-2xl font-display font-medium text-white tracking-tight mt-2 mb-3">Asisten Keamanan WhatsApp</h3>
+              <p className="text-neutral-400 text-sm mb-4">"Teruskan. Pindai. Tetap aman."</p>
               <ul className="space-y-2 text-neutral-500 text-xs">
                 <li className="flex items-center gap-2">✓ Kirim pesan mencurigakan langsung ke bot</li>
                 <li className="flex items-center gap-2">✓ Auto-detect link & scam dari chat</li>
@@ -540,41 +550,34 @@ function BentoGrid() {
           </div>
         </div>
 
-        {/* 4. VERIX Pulse (Live Threat Intelligence) */}
-        <div className="group relative rounded-3xl border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800/85 transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden md:col-span-1 min-h-[380px]">
-          <Meteors number={10} />
-          <div className="relative z-10 flex flex-col h-full justify-between gap-6">
-            <div>
-              <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
-                <Radar className="w-5 h-5 text-amber-400 animate-pulse" />
+        {/* 6. Browser Extension (Coming Soon) */}
+        <ShineCardContainer className="col-span-1 md:col-span-1 min-h-[380px] opacity-40 grayscale pointer-events-none select-none relative">
+          <ShineCard glowColor="rgba(59, 130, 246, 0.05)">
+            <div className="flex flex-col h-full justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center">
+                    <Link2 className="w-5 h-5 text-blue-400/60" />
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] font-mono text-blue-400 font-medium">Segera Hadir</span>
+                </div>
+                <span className="text-xs font-mono text-blue-400/60 uppercase tracking-widest font-semibold">06. EKSTENSI</span>
+                <h3 className="text-xl font-display font-medium text-white/60 tracking-tight mt-2 mb-2">Ekstensi Browser</h3>
+                <p className="text-neutral-500 text-xs mb-4">"Perlindungan, di mana pun Anda menjelajah."</p>
+                <ul className="space-y-1.5 text-neutral-600 text-[11px]">
+                  <li className="flex items-center gap-1">✓ Deteksi phishing saat browsing</li>
+                  <li className="flex items-center gap-1">✓ Peringatan real-time sebelum klik link</li>
+                  <li className="flex items-center gap-1">✓ Integrasi langsung dengan engine VERIX</li>
+                  <li className="flex items-center gap-1">✓ Ringan & mengutamakan privasi</li>
+                </ul>
               </div>
-              <span className="text-xs font-mono text-amber-400 uppercase tracking-widest font-semibold">06. THREAT PULSE</span>
-              <h3 className="text-2xl font-display font-medium text-white tracking-tight mt-2 mb-3">VERIX Pulse</h3>
-              <p className="text-neutral-400 text-sm mb-4">"See what’s happening."</p>
-              <ul className="space-y-2 text-neutral-500 text-xs">
-                <li className="flex items-center gap-2">✓ Feed ancaman real-time (Abuse.ch + PhishTank + lokal)</li>
-                <li className="flex items-center gap-2">✓ Hotspot scam di Indonesia</li>
-                <li className="flex items-center gap-2">✓ AI situational report harian</li>
-              </ul>
-            </div>
 
-            {/* Live Indicator */}
-            <div className="flex items-center gap-4 bg-neutral-950/60 p-3.5 border border-neutral-900 rounded-xl mt-auto z-10">
-              <span className="flex h-2.5 w-2.5 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-              </span>
-              <div className="text-left">
-                <p className="text-[10px] font-mono text-neutral-400 uppercase">ACTIVE THREAT DETECTED</p>
-                <p className="text-xs font-semibold text-white truncate max-w-[150px]">Phishing Tagihan Listrik PLN (.APK)</p>
-              </div>
+              <p className="text-[10px] text-neutral-700 font-mono italic mt-6">
+                "Jangan tunggu kena dulu baru sadar."
+              </p>
             </div>
-
-            <p className="text-[11px] text-neutral-600 font-mono italic mt-4">
-              "Radar ancaman digital."
-            </p>
-          </div>
-        </div>
+          </ShineCard>
+        </ShineCardContainer>
 
       </div>
     </section>
@@ -629,7 +632,7 @@ function InteractiveDemo() {
             <div className="bg-neutral-900 border-b border-neutral-800 px-5 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-xs font-mono text-neutral-400">ANALYZING EVIDENCE</span>
+                <span className="text-xs font-mono text-neutral-400">MENGANALISIS BUKTI</span>
               </div>
               <span className="text-[10px] font-mono text-white bg-neutral-800 px-2 py-1 rounded">confidence.98%</span>
             </div>
@@ -643,7 +646,7 @@ function InteractiveDemo() {
                   <div className="pt-4 border-t border-neutral-800 mt-4">
                     <div className="flex items-center gap-2 text-red-400 mb-2">
                       <FileWarning className="w-4 h-4" />
-                      <span className="text-xs font-mono font-bold">MALWARE SIGNATURE DETECTED</span>
+                      <span className="text-xs font-mono font-bold">SIGNATURE MALWARE TERDETEKSI</span>
                     </div>
                     <p className="text-neutral-500 text-xs">File berekstensi .apk disamarkan sebagai resi J&T. Berpotensi mencuri akses SMS OTP untuk kuras rekening.</p>
                   </div>
@@ -660,7 +663,7 @@ function InteractiveDemo() {
                       </div>
                       <div className="text-center py-4 relative">
                         <div className="absolute inset-0 border border-red-500/50 rounded pointer-events-none border-dashed bg-red-500/10" />
-                        <span className="text-[10px] text-red-500 absolute -top-2 right-2 bg-neutral-950 px-1 border border-red-500/50 rounded font-mono">FONT ANOMALY</span>
+                        <span className="text-[10px] text-red-500 absolute -top-2 right-2 bg-neutral-950 px-1 border border-red-500/50 rounded font-mono">ANOMALI FONT</span>
                         <h4 className="text-2xl font-bold text-white tracking-tight">Rp 5.500.000</h4>
                         <p className="text-neutral-500 text-xs mt-1">Ke BCA: Toko Kamera...</p>
                       </div>
@@ -669,7 +672,7 @@ function InteractiveDemo() {
                   <div className="pt-2 border-t border-neutral-800 mt-4">
                     <div className="flex items-center gap-2 text-amber-500 mb-2">
                       <ImageIcon className="w-4 h-4" />
-                      <span className="text-xs font-mono font-bold">MANIPULATION DETECTED</span>
+                      <span className="text-xs font-mono font-bold">MANIPULASI TERDETEKSI</span>
                     </div>
                     <p className="text-neutral-500 text-xs">Analisis pixel menemukan inkonsistensi font pada nominal transfer <span className="text-amber-400 font-mono">(Arial vs Inter)</span> dan noise level ELA (Error Level Analysis) yang mencurigakan.</p>
                   </div>
@@ -690,7 +693,7 @@ function InteractiveDemo() {
                   <div className="pt-2 border-t border-neutral-800 mt-4">
                     <div className="flex items-center gap-2 text-red-400 mb-2">
                       <FileWarning className="w-4 h-4" />
-                      <span className="text-xs font-mono font-bold">MERCHANT MISMATCH</span>
+                      <span className="text-xs font-mono font-bold">KETIDAKCOCOKAN MERCHANT</span>
                     </div>
                     <p className="text-neutral-500 text-xs">QRIS fisik mengatasnamakan <span className="text-white bg-neutral-800 px-1 rounded">&quot;Toko Kopi Kita&quot;</span> namun di-redirect ke entitas <span className="text-red-400 bg-red-500/10 px-1 border border-red-500/20 rounded">&quot;Yayasan XYZ (Blacklisted)&quot;</span>.</p>
                   </div>
@@ -716,7 +719,7 @@ function ExplainableAI() {
       <div className="flex flex-col lg:flex-row gap-20 items-center relative z-10">
         <div className="flex-1 space-y-8">
           <div className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1 mb-2">
-            <span className="text-[10px] font-mono text-neutral-400 tracking-wider">EXPLAINABLE AI ENGINE</span>
+            <span className="text-[10px] font-mono text-neutral-400 tracking-wider">ENGINE AI PENJELASAN</span>
           </div>
           <h2 className="text-4xl md:text-5xl font-display font-medium tracking-tight">Anatomi Sebuah Manipulasi</h2>
           <p className="text-neutral-400 text-lg leading-relaxed">AI kami tidak sekadar memberi label bahaya. Layaknya analis forensik cyber, VERIX menyoroti taktik <i>social engineering</i> yang digunakan penipu, membongkar struktur narasi mereka.</p>
@@ -725,14 +728,14 @@ function ExplainableAI() {
             <li className="flex items-start gap-4">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mt-1 shrink-0"><span className="text-emerald-400 font-mono text-xs">01</span></div>
               <div>
-                <h4 className="text-white font-medium mb-1">Emotion Trigger Analysis</h4>
+                <h4 className="text-white font-medium mb-1">Analisis Pemicu Emosi</h4>
                 <p className="text-neutral-500 text-sm">Mendeteksi ancaman, batas waktu palsu, atau janji keuntungan instan.</p>
               </div>
             </li>
             <li className="flex items-start gap-4">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mt-1 shrink-0"><span className="text-emerald-400 font-mono text-xs">02</span></div>
               <div>
-                <h4 className="text-white font-medium mb-1">Entity Impersonation</h4>
+                <h4 className="text-white font-medium mb-1">Peniruan Identitas Entitas</h4>
                 <p className="text-neutral-500 text-sm">Validasi apakah gaya bahasa sesuai dengan SOP komunikasi institusi asli.</p>
               </div>
             </li>
@@ -743,13 +746,13 @@ function ExplainableAI() {
           <div className="absolute -inset-4 bg-gradient-to-tr from-emerald-500/10 via-transparent to-blue-500/10 blur-2xl rounded-full opacity-50" />
           <div className="relative bg-neutral-950 border border-neutral-800 rounded-3xl p-8 shadow-2xl">
             <div className="flex items-center justify-between mb-8 pb-6 border-b border-neutral-900">
-              <span className="text-[10px] font-mono text-neutral-500">THREAT ANALYSIS LOG</span>
+              <span className="text-[10px] font-mono text-neutral-500">LOG ANALISIS ANCAMAN</span>
               <span className="text-[10px] font-mono text-neutral-500">ID: WH-924-A</span>
             </div>
 
             <div className="bg-neutral-900 px-6 py-5 rounded-2xl border border-neutral-800 text-sm mb-8 relative">
               <div className="absolute -left-3 top-6 w-6 h-[1.5px] bg-neutral-800" />
-              <span className="font-mono text-neutral-500 block mb-2 text-xs">RAW TEXT INGESTION</span>
+              <span className="font-mono text-neutral-500 block mb-2 text-xs">INGESTI TEKS MENTAH</span>
               <p className="text-neutral-300 leading-relaxed font-medium">&quot;Terkait akun <span className="bg-amber-500/20 text-amber-200 px-1 rounded">BCA Anda</span>, mohon segera <span className="bg-red-500/20 text-red-200 px-1 rounded">klik link berikut</span> untuk menghindari <span className="bg-red-500/20 text-red-200 px-1 rounded">pemblokiran secara permanen</span> hari ini.&quot;</p>
             </div>
 
@@ -760,7 +763,7 @@ function ExplainableAI() {
                   <AlertCircle className="w-4 h-4" />
                 </div>
                 <div className="pb-4">
-                  <h4 className="font-medium text-white mb-1">Urgency Generation</h4>
+                  <h4 className="font-medium text-white mb-1">Pembuatan Urgensi</h4>
                   <p className="text-sm text-neutral-500">Pembuatan batas waktu irasional (&quot;pemblokiran permanen&quot;) untuk memaksa pengambilan keputusan tanpa berpikir panjang.</p>
                 </div>
               </motion.div>
@@ -769,7 +772,7 @@ function ExplainableAI() {
                   <Lock className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-medium text-white mb-1">False Authority</h4>
+                  <h4 className="font-medium text-white mb-1">Otoritas Palsu</h4>
                   <p className="text-sm text-neutral-500">Identitas nomor pengirim (WhatsApp biasa) tidak cocok dengan profil korporat Verified Institusi.</p>
                 </div>
               </motion.div>
@@ -806,16 +809,16 @@ function ScamStatistics({ setActiveTab }: { setActiveTab: (id: string) => void }
     if (t.country === "ID" && t.region) {
       let regionName = t.region;
       if (regionName === "Jakarta Raya") regionName = "Jakarta";
-      
+
       if (!provinceScores[regionName]) {
         provinceScores[regionName] = { count: 0, score: 0 };
       }
       provinceScores[regionName].count += 1;
-      
+
       let severityWeight = 1;
       if (t.severity === "CRITICAL") severityWeight = 3;
       else if (t.severity === "HIGH") severityWeight = 2;
-      
+
       provinceScores[regionName].score += severityWeight;
     }
   });
@@ -836,10 +839,31 @@ function ScamStatistics({ setActiveTab }: { setActiveTab: (id: string) => void }
       weight: weight
     };
   });
+  let malwareCount = 0;
+  let phishingCount = 0;
+  let socEngCount = 0;
 
-  const globalThreatsDetected = intel?.globalThreatsDetected || 34;
-  const accountsSaved = intel?.accountsSaved || 450;
-  const threatPct = intel?.threatPctChange || 15;
+  threatsList.forEach((t: any) => {
+    const typeUpper = (t.type || '').toUpperCase();
+    const titleUpper = (t.title || '').toUpperCase();
+
+    if (typeUpper.includes('MALWARE') || titleUpper.includes('APK')) {
+      malwareCount++;
+    } else if (typeUpper.includes('PHISHING') || typeUpper.includes('QRIS') || titleUpper.includes('PHISHING') || titleUpper.includes('KLIKBCA')) {
+      phishingCount++;
+    } else {
+      socEngCount++;
+    }
+  });
+
+  const totalCount = malwareCount + phishingCount + socEngCount || 1;
+  const malwarePct = Math.round((malwareCount / totalCount) * 100);
+  const phishingPct = Math.round((phishingCount / totalCount) * 100);
+  const socEngPct = Math.max(0, 100 - malwarePct - phishingPct);
+
+  const globalThreatsDetected = intel?.globalThreatsDetected ?? 0;
+  const accountsSaved = intel?.accountsSaved ?? 0;
+  const threatPct = intel?.threatPctChange ?? 0;
 
   return (
     <section className="py-32 bg-neutral-950 border-y border-neutral-900 relative overflow-hidden">
@@ -858,13 +882,13 @@ function ScamStatistics({ setActiveTab }: { setActiveTab: (id: string) => void }
           <div>
             <div className="flex items-center gap-3 mb-4">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs font-mono text-emerald-400 font-bold tracking-widest">LIVE TELEMETRY</span>
+              <span className="text-xs font-mono text-emerald-400 font-bold tracking-widest">TELEMETRI LANGSUNG</span>
             </div>
-            <h2 className="text-4xl md:text-5xl font-display font-medium mb-6 tracking-tight">Threat Heatmap Indonesia</h2>
+            <h2 className="text-4xl md:text-5xl font-display font-medium mb-6 tracking-tight">Peta Panas Ancaman Indonesia</h2>
             <p className="text-neutral-400 text-lg max-w-2xl leading-relaxed">Visualisasi data intelijen secara real-time dari jutaan pemindaian link, laporan komunitas, dan analisis anomali transaksi perbankan di seluruh wilayah Indonesia.</p>
           </div>
           <button onClick={() => setActiveTab('threatpulse')} className="text-white bg-neutral-900 border border-neutral-800 px-6 py-3 rounded-xl font-medium flex items-center gap-2 hover:bg-neutral-800 transition-colors shadow-sm">
-            Open Full Reports <ArrowRight className="w-4 h-4" />
+            Buka Laporan Lengkap <ArrowRight className="w-4 h-4" />
           </button>
         </div>
 
@@ -887,11 +911,11 @@ function ScamStatistics({ setActiveTab }: { setActiveTab: (id: string) => void }
             <div className="absolute bottom-4 right-4 w-4 h-4 border-b-2 border-r-2 border-emerald-400/50" />
 
             <div className="absolute bottom-6 left-8 bg-neutral-950/80 backdrop-blur border border-neutral-800 p-4 rounded-xl z-20">
-              <span className="text-[10px] font-mono text-neutral-500 mb-2 block">ACTIVE VECTORS</span>
+              <span className="text-[10px] font-mono text-neutral-500 mb-2 block">VEKTOR AKTIF</span>
               <div className="flex gap-4">
-                <div><span className="text-red-400 font-mono text-sm block">42%</span><span className="text-xs text-neutral-400">Malware</span></div>
-                <div><span className="text-amber-400 font-mono text-sm block">38%</span><span className="text-xs text-neutral-400">Phishing</span></div>
-                <div><span className="text-blue-400 font-mono text-sm block">20%</span><span className="text-xs text-neutral-400">SocEng</span></div>
+                <div><span className="text-red-400 font-mono text-sm block">{malwarePct}%</span><span className="text-xs text-neutral-400">Malware</span></div>
+                <div><span className="text-amber-400 font-mono text-sm block">{phishingPct}%</span><span className="text-xs text-neutral-400">Phishing</span></div>
+                <div><span className="text-blue-400 font-mono text-sm block">{socEngPct}%</span><span className="text-xs text-neutral-400">SocEng</span></div>
               </div>
             </div>
           </div>
@@ -935,75 +959,75 @@ function IntelligenceEcosystem() {
   const sources = [
     {
       name: 'VirusTotal',
-      purpose: 'Malware & phishing intelligence',
-      status: 'Active Monitoring',
+      purpose: 'Intelijen malware & phishing',
+      status: 'Pemantauan Aktif',
       icon: ShieldAlert,
       color: 'text-emerald-400',
       bg: 'bg-emerald-400/10',
       border: 'border-emerald-400/20',
       stats: stats.virusTotal.toLocaleString(),
-      statLabel: 'Threats analyzed today',
-      items: ['Phishing domains', 'Malware APK', 'Suspicious redirects']
+      statLabel: 'Ancaman dianalisis hari ini',
+      items: ['Domain phishing', 'Malware APK', 'Redirect mencurigakan']
     },
     {
       name: 'Google Safe Browsing',
-      purpose: 'URL threat detection',
-      status: 'Synced',
+      purpose: 'Deteksi ancaman URL',
+      status: 'Tersinkronisasi',
       icon: Link2,
       color: 'text-blue-400',
       bg: 'bg-blue-400/10',
       border: 'border-blue-400/20',
       stats: stats.safeBrowsing.toLocaleString(),
-      statLabel: 'Blocked today',
-      items: ['Dangerous URLs', 'Fake login pages', 'Credential phishing']
+      statLabel: 'Diblokir hari ini',
+      items: ['URL Berbahaya', 'Halaman login palsu', 'Phishing kredensial']
     },
     {
       name: 'Gemini Vision',
-      purpose: 'Visual scam analysis',
-      status: 'AI Vision Active',
+      purpose: 'Analisis penipuan visual',
+      status: 'Visi AI Aktif',
       icon: Eye,
       color: 'text-purple-400',
       bg: 'bg-purple-400/10',
       border: 'border-purple-400/20',
       stats: stats.geminiVision.toLocaleString(),
-      statLabel: 'AI scans today',
-      items: ['Fake screenshots', 'QR manipulation', 'Visual tampering']
+      statLabel: 'Pemindaian AI hari ini',
+      items: ['Tangkapan layar palsu', 'Manipulasi QR', 'Pemalsuan visual']
     },
     {
       name: 'TurnBackHoax',
-      purpose: 'Hoax verification Indonesia',
-      status: 'Live Feed',
+      purpose: 'Verifikasi hoaks Indonesia',
+      status: 'Feed Langsung',
       icon: FileWarning,
       color: 'text-amber-400',
       bg: 'bg-amber-400/10',
       border: 'border-amber-400/20',
       stats: stats.turnBackHoax.toLocaleString(),
-      statLabel: 'Active reports',
-      items: ['Indonesian hoaxes', 'Misinformation', 'Viral fake news']
+      statLabel: 'Laporan aktif',
+      items: ['Hoaks Indonesia', 'Misinformasi', 'Berita palsu viral']
     },
     {
       name: 'URLScan',
-      purpose: 'Suspicious domain analysis',
-      status: 'Connected',
+      purpose: 'Analisis domain mencurigakan',
+      status: 'Terhubung',
       icon: Search,
       color: 'text-cyan-400',
       bg: 'bg-cyan-400/10',
       border: 'border-cyan-400/20',
       stats: stats.urlScan.toLocaleString(),
-      statLabel: 'Realtime scans',
-      items: ['Suspicious domains', 'Redirect chains', 'Hidden scripts']
+      statLabel: 'Pemindaian realtime',
+      items: ['Domain mencurigakan', 'Rantai redirect', 'Skrip tersembunyi']
     },
     {
       name: 'NewsAPI',
-      purpose: 'Realtime scam monitoring',
-      status: 'Live Intel',
+      purpose: 'Pemantauan penipuan realtime',
+      status: 'Intel Langsung',
       icon: Radar,
       color: 'text-rose-400',
       bg: 'bg-rose-400/10',
       border: 'border-rose-400/20',
       stats: stats.newsApi.toLocaleString(),
-      statLabel: 'News processed',
-      items: ['Scam outbreaks', 'Cyber incidents', 'Fraud trends']
+      statLabel: 'Berita diproses',
+      items: ['Wabah penipuan', 'Insiden siber', 'Tren penipuan']
     }
   ];
 
@@ -1020,9 +1044,9 @@ function IntelligenceEcosystem() {
         <div className="text-center mb-24 relative">
           <div className="inline-flex items-center gap-2 bg-neutral-900/80 backdrop-blur border border-neutral-800 rounded-full px-4 py-1.5 mb-8 hover:bg-neutral-800 transition-colors cursor-default">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-[pulse_2s_ease-in-out_infinite] shadow-[0_0_10px_rgba(182,255,59,0.5)]" />
-            <span className="text-[10px] font-mono text-emerald-400 tracking-wider">LIVE INTELLIGENCE ECOSYSTEM</span>
+            <span className="text-[10px] font-mono text-emerald-400 tracking-wider">EKOSISTEM INTELIJEN LANGSUNG</span>
           </div>
-          <h2 className="text-5xl md:text-6xl font-display font-medium tracking-tight mb-8">Powered by Realtime <br className="hidden md:block" /> Threat Intelligence<span className="text-emerald-400">.</span></h2>
+          <h2 className="text-5xl md:text-6xl font-display font-medium tracking-tight mb-8">Ditenagai oleh Intelijen <br className="hidden md:block" /> Ancaman Realtime<span className="text-emerald-400">.</span></h2>
           <p className="text-neutral-400 text-lg md:text-xl max-w-3xl mx-auto leading-relaxed">
             VERIX menggabungkan AI analysis dengan sumber keamanan digital terpercaya untuk mendeteksi ancaman digital secara realtime.
           </p>
@@ -1110,7 +1134,7 @@ function IntelligenceEcosystem() {
         <div className="mt-32 pt-20 border-t border-neutral-800/50">
           <div className="text-center mb-16 relative">
             <div className="absolute inset-0 bg-emerald-500/5 blur-[100px] w-64 h-64 mx-auto rounded-full -top-10" />
-            <h3 className="text-3xl font-display font-medium text-white mb-6 tracking-tight relative z-10">AI Intelligence Pipeline</h3>
+            <h3 className="text-3xl font-display font-medium text-white mb-6 tracking-tight relative z-10">Alur Intelijen AI</h3>
             <p className="text-neutral-400 text-lg relative z-10 max-w-xl mx-auto">Analisis ancaman multi-layer dalam hitungan milidetik. Dari deteksi awal hingga perlindungan aktif.</p>
           </div>
 
@@ -1120,11 +1144,11 @@ function IntelligenceEcosystem() {
 
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-2 pt-4 pb-4">
               {[
-                { name: 'Threat Sources', icon: Radar, color: 'text-neutral-400' },
-                { name: 'AI Detection', icon: Eye, color: 'text-blue-400' },
-                { name: 'Risk Classification', icon: AlertCircle, color: 'text-amber-400' },
-                { name: 'Threat Intel', icon: ShieldAlert, color: 'text-purple-400' },
-                { name: 'User Protection', icon: Lock, color: 'text-emerald-400', highlight: true }
+                { name: 'Sumber Ancaman', icon: Radar, color: 'text-neutral-400' },
+                { name: 'Deteksi AI', icon: Eye, color: 'text-blue-400' },
+                { name: 'Klasifikasi Risiko', icon: AlertCircle, color: 'text-amber-400' },
+                { name: 'Intel Ancaman', icon: ShieldAlert, color: 'text-purple-400' },
+                { name: 'Perlindungan Pengguna', icon: Lock, color: 'text-emerald-400', highlight: true }
               ].map((step, idx, arr) => (
                 <React.Fragment key={idx}>
                   <motion.div
@@ -1198,9 +1222,9 @@ function EducationSection() {
       <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-500/20 via-amber-500/20 to-transparent" />
       <div className="text-center mb-16">
         <div className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1 mb-6">
-          <span className="text-[10px] font-mono text-cyan-400 tracking-wider">THREAT INTELLIGENCE EDUCATION</span>
+          <span className="text-[10px] font-mono text-cyan-400 tracking-wider">EDUKASI INTELIJEN ANCAMAN</span>
         </div>
-        <h2 className="text-4xl md:text-5xl font-display font-medium tracking-tight mb-6">Stay Ahead of Scams.</h2>
+        <h2 className="text-4xl md:text-5xl font-display font-medium tracking-tight mb-6">Tetap Selangkah di Depan Penipuan.</h2>
         <p className="text-neutral-400 text-lg max-w-2xl mx-auto">Kenali pola penipuan modern sebelum terjadi. Jangan biarkan Anda atau keluarga menjadi korban selanjutnya.</p>
       </div>
 

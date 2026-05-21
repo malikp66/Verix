@@ -138,17 +138,17 @@ async function generateCuratedIntelligence(): Promise<any> {
 
   const metrics = readScanMetrics();
   const ecosystemStats = {
-    virusTotal: metrics.totalScans || 450,
-    safeBrowsing: metrics.totalScans || 450,
-    geminiVision: metrics.imageScans || 120,
+    virusTotal: metrics.totalScans,
+    safeBrowsing: metrics.totalScans,
+    geminiVision: metrics.imageScans,
     turnBackHoax: enrichedItems.filter(i => i.source.includes("turnbackhoax")).length,
-    urlScan: metrics.totalScans || 450,
+    urlScan: metrics.totalScans,
     newsApi: enrichedItems.filter(i => i.source.includes("news.google")).length
   };
 
-  const globalThreatsDetected = metrics.highRiskScans || 34;
-  const accountsSaved = metrics.totalScans || 450;
-  const threatPctChange = accountsSaved > 0 ? Math.round((globalThreatsDetected / accountsSaved) * 100) : 15;
+  const globalThreatsDetected = metrics.highRiskScans;
+  const accountsSaved = metrics.totalScans;
+  const threatPctChange = accountsSaved > 0 ? Math.round((globalThreatsDetected / accountsSaved) * 100) : 0;
 
   return {
     success: true,
@@ -196,16 +196,16 @@ function getBaselineMockPayload() {
       { title: "Fake QRIS Merchant", changePct: 12, type: "warning", time: "25m ago", valueType: "cases" }
     ],
     ecosystemStats: {
-      virusTotal: metrics.totalScans || 240,
-      safeBrowsing: metrics.totalScans || 240,
-      geminiVision: metrics.imageScans || 54,
+      virusTotal: metrics.totalScans,
+      safeBrowsing: metrics.totalScans,
+      geminiVision: metrics.imageScans,
       turnBackHoax: 4,
-      urlScan: metrics.totalScans || 240,
+      urlScan: metrics.totalScans,
       newsApi: 12
     },
-    globalThreatsDetected: metrics.highRiskScans || 18,
-    accountsSaved: metrics.totalScans || 240,
-    threatPctChange: 8,
+    globalThreatsDetected: metrics.highRiskScans,
+    accountsSaved: metrics.totalScans,
+    threatPctChange: metrics.totalScans > 0 ? Math.round((metrics.highRiskScans / metrics.totalScans) * 100) : 0,
     lastSynced: new Date().toISOString()
   };
 }

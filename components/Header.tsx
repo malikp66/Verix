@@ -6,6 +6,7 @@ import { Shield, ChevronDown, Menu, X, Sparkles } from 'lucide-react';
 import { useIntel } from './IntelligenceProvider';
 import { useAuth } from './FirebaseProvider';
 import { useAICredits } from '@/hooks/use-ai-credits';
+import { CreditTopUpModal } from './CreditTopUpModal';
 
 export function Header({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (id: string) => void }) {
   const [scrolled, setScrolled] = useState(false);
@@ -13,6 +14,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
   const intel = useIntel();
   const { user, login } = useAuth();
   const { credits, isCreditLoading } = useAICredits();
+  const [showTopUpModal, setShowTopUpModal] = useState(false);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', sub: 'System Overview' },
@@ -28,8 +30,8 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
   }, []);
 
   const alerts = intel?.tickerAlerts || [
-    "🚨 SYSTEM: Initializing threat network...",
-    "⚠ SYNC: Menghubungkan ke node intelijen lokal"
+    "🚨 SYSTEM: Initializing threat intelligence network...",
+    "⚠ SYNC: Connecting to local intelligence nodes"
   ];
 
   return (
@@ -85,7 +87,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
                 <span className="font-display font-medium text-lg tracking-tight text-white leading-none">VERIX</span>
                 <span className="w-1 h-1 rounded-full bg-emerald-400" />
               </div>
-              <span className="text-[9px] font-mono text-neutral-500 tracking-widest leading-none mt-1 hidden md:block">VERIFIKASI RISIKO DIGITAL</span>
+              <span className="text-[9px] font-mono text-neutral-500 tracking-widest leading-none mt-1 hidden md:block">DIGITAL RISK VERIFICATION</span>
             </div>
           </div>
 
@@ -130,35 +132,43 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
 
           {/* Right: CTA Area */}
           <div className="flex items-center gap-4 shrink-0">
-            <div className="hidden lg:flex items-center gap-3 border-r border-neutral-800 pr-4 mr-1">
-              {/* Credits indicator */}
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+            {/* Credits indicator */}
+            <div className="hidden lg:flex items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                  <span className="text-[11px] font-mono text-emerald-300 font-medium tracking-wide">
                    {isCreditLoading ? '... ' : credits}{' '}
                    <span className="text-emerald-500/70 hidden xl:inline">AI Credits</span>
                  </span>
+                 <button 
+                    onClick={() => setShowTopUpModal(true)} 
+                    title="Top Up AI Credits" 
+                    className="ml-1 px-1.5 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[9px] font-bold font-mono rounded transition-all active:scale-95 flex items-center justify-center cursor-pointer"
+                  >
+                    + TOP UP
+                  </button>
               </div>
-              
-              <div className="w-6 h-6 rounded-md bg-neutral-800 flex items-center justify-center text-[9px] font-mono text-neutral-400 border border-neutral-700 overflow-hidden">
-                {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" /> : 'ID'}
-              </div>
-              <span className="text-sm font-medium text-neutral-400 truncate max-w-[120px]">
-                {user ? user.displayName || user.email?.split('@')[0] : 'Guest User'}
-              </span>
             </div>
+
+            {/* Auth Area */}
             {user ? (
-              <button 
-                onClick={() => setActiveTab('scanner')} 
-                className="group relative px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-sm font-medium text-emerald-400 transition-all duration-300 hidden lg:flex items-center gap-2 overflow-hidden"
-              >
-                <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-                <span className="relative z-10">Mulai Analisis</span>
-              </button>
+              <div className="hidden lg:flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2 hover:border-neutral-700 transition-colors">
+                <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-xs font-mono font-bold select-none shrink-0">
+                  {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-xs font-semibold text-white leading-tight truncate max-w-[120px]">
+                    {user.displayName || user.email?.split('@')[0]}
+                  </span>
+                  <span className="text-[9px] font-mono text-neutral-500 leading-none mt-0.5">
+                    Premium User
+                  </span>
+                </div>
+              </div>
             ) : (
               <button 
                 onClick={() => login()} 
-                className="group relative px-4 py-2 bg-white hover:bg-neutral-200 border border-transparent rounded-lg text-sm font-medium text-neutral-950 transition-all duration-300 hidden lg:flex items-center gap-2 overflow-hidden"
+                className="group relative px-4 py-2 bg-white hover:bg-neutral-200 border border-transparent rounded-lg text-sm font-medium text-neutral-950 transition-all duration-300 hidden lg:flex items-center gap-2 overflow-hidden cursor-pointer"
               >
                 <span className="relative z-10">Login</span>
               </button>
@@ -230,46 +240,72 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
               </div>
               
               <div className="p-5 border-t border-neutral-800/50 bg-neutral-900/30 mb-safe flex flex-col gap-4">
-                 <div className="flex items-center gap-3">
-                   <div className="w-8 h-8 rounded-md bg-neutral-800 flex items-center justify-center text-[10px] font-mono text-neutral-400 border border-neutral-700 overflow-hidden">
-                     {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" /> : 'ID'}
+                 {user && (
+                   <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-xs font-mono font-bold select-none shrink-0">
+                       {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                     </div>
+                     <div className="flex flex-col flex-1 overflow-hidden">
+                       <span className="text-sm font-medium text-neutral-300 truncate">
+                         {user.displayName || user.email?.split('@')[0]}
+                       </span>
+                       <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1.5">
+                         <Sparkles className="w-3 h-3" /> {isCreditLoading ? '... ' : credits} AI Credits
+                         <button 
+                           onClick={() => topUpCredits(10)} 
+                           className="ml-1 px-1 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[8px] font-bold font-mono rounded cursor-pointer"
+                         >
+                           + TOP UP
+                         </button>
+                       </span>
+                     </div>
                    </div>
-                   <div className="flex flex-col flex-1">
-                     <span className="text-sm font-medium text-neutral-300">
-                       {user ? user.displayName || user.email?.split('@')[0] : 'Guest User'}
-                     </span>
-                     <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
-                       <Sparkles className="w-3 h-3" /> {isCreditLoading ? '... ' : credits} AI Credits
-                     </span>
+                 )}
+                 {!user && (
+                   <div className="flex items-center justify-between">
+                     <span className="text-[10px] font-mono text-neutral-500 tracking-wider">GUEST ACCESS</span>
+                     <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                       <Sparkles className="w-3 h-3 text-emerald-400" />
+                       <span className="text-[10px] font-mono text-emerald-300">
+                         {isCreditLoading ? '... ' : credits} AI Credits
+                       </span>
+                       <button 
+                         onClick={() => topUpCredits(10)} 
+                         className="ml-1 px-1 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[8px] font-bold font-mono rounded cursor-pointer"
+                       >
+                         + TOP UP
+                       </button>
+                     </div>
                    </div>
-                 </div>
+                 )}
                  {user ? (
-                   <button 
-                    onClick={() => {
-                      setActiveTab('scanner');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="w-full relative px-4 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-sm font-medium text-emerald-400 transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                  >
-                    <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent -translate-x-full hover:animate-[shimmer_1.5s_infinite]" />
-                    <span className="relative z-10 font-bold tracking-wide">Mulai Analisis</span>
-                  </button>
+                    <button 
+                     onClick={() => {
+                       setActiveTab('scanner');
+                       setIsMobileMenuOpen(false);
+                     }}
+                     className="w-full relative px-4 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-sm font-medium text-emerald-400 transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                   >
+                     <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent -translate-x-full hover:animate-[shimmer_1.5s_infinite]" />
+                     <span className="relative z-10 font-bold tracking-wide">Run Analysis</span>
+                   </button>
                  ) : (
-                   <button 
-                    onClick={() => {
-                      login();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="w-full relative px-4 py-3 bg-white hover:bg-neutral-200 border border-transparent rounded-xl text-sm font-medium text-neutral-950 transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden"
-                  >
-                    <span className="relative z-10 font-bold tracking-wide">Login</span>
-                  </button>
+                    <button 
+                     onClick={() => {
+                       login();
+                       setIsMobileMenuOpen(false);
+                     }}
+                     className="w-full relative px-4 py-3 bg-white hover:bg-neutral-200 border border-transparent rounded-xl text-sm font-medium text-neutral-950 transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden"
+                   >
+                     <span className="relative z-10 font-bold tracking-wide">Login</span>
+                   </button>
                  )}
               </div>
             </motion.div>
           </>
         )}
       </AnimatePresence>
+      <CreditTopUpModal isOpen={showTopUpModal} onClose={() => setShowTopUpModal(false)} />
     </>
   );
 }

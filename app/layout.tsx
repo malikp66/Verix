@@ -1,5 +1,6 @@
 import type {Metadata} from 'next';
 import { Inter, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import { FirebaseProvider } from '@/components/FirebaseProvider';
 
@@ -30,6 +31,11 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
         <FirebaseProvider>
           {children}
         </FirebaseProvider>
+        <Script
+          src={`https://app.${process.env.MIDTRANS_ENV === 'production' ? '' : 'sandbox.'}midtrans.com/snap/snap.js`}
+          data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ''}
+          strategy="lazyOnload"
+        />
       </body>
     </html>
   );

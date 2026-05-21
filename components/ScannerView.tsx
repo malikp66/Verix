@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   ShieldAlert, Zap, UploadCloud, Search, CheckCircle2, 
   AlertTriangle, Crosshair, ArrowRight, Activity, Radar, 
-  Lock, ScanSearch, Terminal, Database, Brain, Network, ChevronDown
+  Lock, ScanSearch, Terminal, Database, Brain, Network, ChevronDown, Sparkles
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { LightRays } from './ui/light-rays';
@@ -47,6 +47,30 @@ const SCAN_STEPS = [
   "Synthesizing Explainable AI profile..."
 ];
 
+function AILockOverlay({ onTopUp }: { onTopUp: () => void }) {
+  return (
+    <div className="absolute inset-0 bg-neutral-950/75 backdrop-blur-md z-20 flex flex-col items-center justify-center text-center p-6 border border-neutral-800 rounded-[24px] animate-in fade-in duration-300">
+      <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/25 flex items-center justify-center mb-4 relative shadow-[0_0_15px_rgba(245,158,11,0.15)] animate-[pulse_2s_infinite]">
+        <Lock className="w-5 h-5 text-amber-400" />
+      </div>
+      <h4 className="text-base font-display font-medium text-white mb-2">AI Analysis Locked</h4>
+      <p className="text-xs text-neutral-400 max-w-[260px] mb-5 leading-relaxed font-sans">
+        AI Credits kamu sudah habis. Top up untuk membuka narrative explanation, manipulation tactics, red flags, dan action protocol.
+      </p>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onTopUp();
+        }}
+        className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 text-xs font-bold font-mono rounded-xl transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)] active:scale-95 flex items-center gap-2 cursor-pointer relative z-30"
+      >
+        <Sparkles className="w-3.5 h-3.5" /> TOP UP CREDITS
+      </button>
+    </div>
+  );
+}
+
 function ScanHistorySection() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
@@ -64,7 +88,7 @@ function ScanHistorySection() {
           <span className="text-[10px] font-mono text-cyan-400 tracking-wider">HISTORICAL THREAT INTELLIGENCE</span>
         </div>
         <h2 className="text-3xl md:text-4xl font-display font-medium tracking-tight text-white mb-2">Scan History</h2>
-        <p className="text-neutral-400 text-sm md:text-base">All previously analyzed threats and their risk profiles.</p>
+        <p className="text-neutral-400 text-sm md:text-base">Semua ancaman yang telah dianalisis beserta risk profile-nya.</p>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -139,7 +163,7 @@ function ScanHistorySection() {
 }
 
 export function ScannerView() {
-  const { credits, consumeCredit } = useAICredits();
+  const { credits, consumeCredit, topUpCredits } = useAICredits();
   const [inputVal, setInputVal] = useState('');
   const [scanState, setScanState] = useState<'idle' | 'scanning' | 'results' | 'error'>('idle');
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -253,12 +277,7 @@ export function ScannerView() {
         }
       }
 
-      // Live Scan - quota check is required
-      if (credits !== null && credits <= 0) {
-        setErrorMessage('Kuota AI Anda sudah habis untuk hari ini.');
-        setScanState('error');
-        return;
-      }
+      // Live Scan - quota check bypassed (allows scan when credits === 0)
 
       const payload: any = { text: inputVal };
       if (selectedImage) {
@@ -340,7 +359,7 @@ export function ScannerView() {
               Ancaman Digital <br className="hidden md:block"/>Kini Terlihat Meyakinkan.
             </h1>
             <p className="text-lg text-neutral-400 mb-10 max-w-2xl">
-              VERIX adalah sistem intelijen yang membedah narasi penipuan. Paste text, peringatan SMS, link, atau upload screenshot WhatsApp untuk mengungkap taktik manipulasinya.
+              VERIX membedah narasi penipuan secara real-time. Paste pesan SMS, link, atau upload screenshot WhatsApp — kami ungkap manipulation tactics di baliknya.
             </p>
 
             <form onSubmit={handleScan} className="w-full max-w-3xl relative">
@@ -398,7 +417,7 @@ export function ScannerView() {
                        disabled={!inputVal.trim() && !selectedImage}
                        className="bg-emerald-500 text-neutral-950 px-6 py-3 font-medium rounded-xl hover:bg-emerald-400 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
                      >
-                       <span className="hidden sm:inline">Analisis</span>
+                       <span className="hidden sm:inline">Analyze</span>
                        <Zap className="w-4 h-4 sm:hidden" />
                      </button>
                    </div>
@@ -483,7 +502,7 @@ export function ScannerView() {
            >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                 <button onClick={() => { setScanState('idle'); setInputVal(''); setSelectedImage(null); }} className="text-sm font-mono text-neutral-500 hover:text-emerald-400 flex items-center gap-2 transition-colors">
-                  ← Analisis Baru
+                  ← New Scan
                 </button>
                 <div className="flex items-center flex-wrap gap-3 sm:gap-4">
                   {isCachedResult ? (
@@ -497,7 +516,7 @@ export function ScannerView() {
                      <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-neutral-500">STATUS:</span>
                         <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-xs font-mono text-emerald-400">
-                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> SCAN COMPLETED (LIVE)
+                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> SCAN COMPLETE (LIVE)
                         </div>
                      </div>
                   )}
@@ -507,7 +526,7 @@ export function ScannerView() {
                     title="Run live scan and update database cache"
                     className="text-xs font-mono bg-neutral-900 hover:bg-neutral-855 text-neutral-300 px-3.5 py-1.5 rounded-xl border border-neutral-800 hover:border-neutral-700 hover:text-white transition-all flex items-center gap-1.5 active:scale-95"
                   >
-                    <Zap className="w-3.5 h-3.5 text-emerald-400" /> Analisis Ulang
+                     <Zap className="w-3.5 h-3.5 text-emerald-400" /> Re-Scan
                   </button>
                 </div>
               </div>
@@ -518,7 +537,7 @@ export function ScannerView() {
                  <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden min-h-[200px]">
                     <div className="flex items-center gap-2.5 mb-4 border-b border-neutral-800/80 pb-3">
                        <ScanSearch className="w-5 h-5 text-cyan-400" />
-                       <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider">Scanned Target</span>
+                        <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider">Scanned Target</span>
                     </div>
                     <div className="flex-1 flex flex-col justify-center">
                        {selectedImage ? (
@@ -543,7 +562,7 @@ export function ScannerView() {
                  <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[200px]">
                     <div className={`absolute top-0 w-full h-1 ${scanResult.severity_score >= 80 ? 'bg-red-500 shadow-red-500' : scanResult.severity_score >= 50 ? 'bg-amber-500 shadow-amber-500' : 'bg-emerald-500 shadow-emerald-500'} shadow-[0_0_20px_var(--tw-shadow-color)]`} />
                     
-                    <p className="text-[10px] font-mono text-neutral-500 mb-3 uppercase tracking-wider">INTELLIGENCE SCORE</p>
+                     <p className="text-[10px] font-mono text-neutral-500 mb-3 uppercase tracking-wider">INTELLIGENCE SCORE</p>
                     
                     {/* Ring Meter */}
                     <div className="relative w-24 h-24 flex items-center justify-center mb-3">
@@ -585,44 +604,49 @@ export function ScannerView() {
                  <div className="lg:col-span-2 space-y-6">
                     {/* AI Narrative Box */}
                     <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 relative overflow-hidden group">
-                       <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                          <Brain className="w-48 h-48" />
-                       </div>
-                       
-                       <div className="flex items-center gap-3 mb-6 relative z-10">
-                         <span className="w-8 h-8 flex items-center justify-center bg-cyan-500/10 text-cyan-400 rounded-lg border border-cyan-500/20">
-                           <Activity className="w-4 h-4" />
-                         </span>
-                         <h3 className="text-lg font-display text-white">AI Threat Explanation</h3>
-                       </div>
-                       
-                       <p className="text-xl md:text-2xl font-light leading-relaxed text-neutral-200 relative z-10">
-                         {scanResult.behavioral_analysis}
-                       </p>
+                       <div className="relative">
+                          {credits === 0 && <AILockOverlay onTopUp={() => topUpCredits(10)} />}
+                          <div className={`transition-all duration-300 ${credits === 0 ? 'blur-md opacity-30 select-none pointer-events-none' : ''}`}>
+                             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                                <Brain className="w-48 h-48" />
+                             </div>
+                             
+                             <div className="flex items-center gap-3 mb-6 relative z-10">
+                               <span className="w-8 h-8 flex items-center justify-center bg-cyan-500/10 text-cyan-400 rounded-lg border border-cyan-500/20">
+                                 <Activity className="w-4 h-4" />
+                               </span>
+                               <h3 className="text-lg font-display text-white">AI Threat Explanation</h3>
+                             </div>
+                             
+                             <p className="text-xl md:text-2xl font-light leading-relaxed text-neutral-200 relative z-10">
+                               {scanResult.behavioral_analysis}
+                             </p>
 
-                       <div className="mt-8 flex flex-col sm:flex-row gap-4 border-t border-neutral-800/50 pt-6">
-                          <div className="flex-1">
-                              <p className="text-xs font-mono text-neutral-500 mb-3 uppercase tracking-wider">PATTERN MATCH</p>
-                              <div className="flex flex-wrap gap-2">
-                                {scanResult.similar_patterns && Array.isArray(scanResult.similar_patterns) ? scanResult.similar_patterns.map((pattern, idx) => (
-                                  <div key={idx} className="flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-lg border border-neutral-800">
-                                    <Network className="w-3.5 h-3.5 text-cyan-500" />
-                                    <span className="text-xs font-mono text-cyan-100/80">{pattern}</span>
-                                  </div>
-                                )) : (
-                                  <div className="flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-lg border border-neutral-800">
-                                    <Network className="w-3.5 h-3.5 text-cyan-500" />
-                                    <span className="text-xs font-mono text-cyan-100/80">{scanResult.similar_pattern || 'No Match Pattern'}</span>
-                                  </div>
-                                )}
-                              </div>
-                          </div>
-                       </div>
+                             <div className="mt-8 flex flex-col sm:flex-row gap-4 border-t border-neutral-800/50 pt-6">
+                                <div className="flex-1">
+                                     <p className="text-xs font-mono text-neutral-500 mb-3 uppercase tracking-wider">PATTERN MATCH</p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {scanResult.similar_patterns && Array.isArray(scanResult.similar_patterns) ? scanResult.similar_patterns.map((pattern, idx) => (
+                                        <div key={idx} className="flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-lg border border-neutral-800">
+                                          <Network className="w-3.5 h-3.5 text-cyan-500" />
+                                          <span className="text-xs font-mono text-cyan-100/80">{pattern}</span>
+                                        </div>
+                                      )) : (
+                                        <div className="flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-lg border border-neutral-800">
+                                          <Network className="w-3.5 h-3.5 text-cyan-500" />
+                                           <span className="text-xs font-mono text-cyan-100/80">{scanResult.similar_pattern || 'No Pattern Match'}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                </div>
+                             </div>
+                           </div>
+                        </div>
 
                        {/* External Intelligence Block */}
                        {scanResult.external_intelligence && Object.keys(scanResult.external_intelligence).length > 0 && (
                          <div className="mt-6 flex flex-col gap-4 border-t border-neutral-800/50 pt-6">
-                            <p className="text-xs font-mono text-neutral-500 mb-1 uppercase tracking-wider">External Intelligence Signals</p>
+                             <p className="text-xs font-mono text-neutral-500 mb-1 uppercase tracking-wider">External Intelligence Signals</p>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                
                                {/* Safe Browsing Card */}
@@ -649,7 +673,7 @@ export function ScannerView() {
                                      </div>
 
                                      <div className="flex flex-wrap gap-1 mt-1 border-t border-neutral-900/60 pt-2 text-[8px] text-neutral-500 font-mono">
-                                        <span>Checked targets: 1 URL</span>
+                                         <span>Checked targets: 1 URL</span>
                                      </div>
                                   </div>
                                )}
@@ -678,7 +702,7 @@ export function ScannerView() {
                                                     {scanResult.virustotal_raw.malicious_votes}
                                                  </span>
                                                  <span className="text-[10px] font-mono text-neutral-500">
-                                                    / {scanResult.virustotal_raw.total_engines} engines malicious
+                                                     / {scanResult.virustotal_raw.total_engines} malicious engines
                                                  </span>
                                               </div>
                                               
@@ -745,7 +769,7 @@ export function ScannerView() {
                                         <span className={`text-lg font-bold font-mono tracking-tight ${
                                            scanResult.external_intelligence.urlscan && !scanResult.external_intelligence.urlscan.includes("100") && !scanResult.external_intelligence.urlscan.includes("Clean") ? "text-amber-400" : "text-emerald-400"
                                          }`}>
-                                           {scanResult.external_intelligence.urlscan.includes("85") || scanResult.external_intelligence.urlscan.includes("100") || scanResult.external_intelligence.urlscan.includes("Clean") ? "REPUTABLE" : "SUSPICIOUS"}
+                                            {scanResult.external_intelligence.urlscan.includes("85") || scanResult.external_intelligence.urlscan.includes("100") || scanResult.external_intelligence.urlscan.includes("Clean") ? "REPUTABLE" : "SUSPICIOUS"}
                                         </span>
                                         <p className="text-[10px] text-neutral-400 mt-1 font-sans leading-relaxed">
                                            {scanResult.external_intelligence.urlscan || "Skor Reputasi: 85/100"}
@@ -753,7 +777,7 @@ export function ScannerView() {
                                      </div>
 
                                      <div className="flex flex-wrap gap-1 mt-1 border-t border-neutral-900/60 pt-2 text-[8px] text-neutral-500 font-mono">
-                                        <span>Behavioral heuristics validation</span>
+                                         <span>Behavioral heuristics validation</span>
                                      </div>
                                   </div>
                                )}
@@ -767,47 +791,53 @@ export function ScannerView() {
                  {/* Column B: Vectors & Recommended Protocols (1 col on lg) */}
                  <div className="space-y-6">
                     {/* Taktik Manipulasi */}
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6">
-                       <div className="flex items-center justify-between mb-4">
-                         <h3 className="text-sm font-mono text-neutral-500 flex items-center gap-2"><Radar className="w-4 h-4" /> VECTORS</h3>
-                       </div>
-                       <div className="flex flex-wrap gap-2">
-                         {scanResult.manipulation_tactics.map((tactic, idx) => (
-                            <span key={idx} className="bg-neutral-950 border border-neutral-800 px-3 py-1.5 rounded-lg text-xs font-mono text-neutral-300 flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                              {tactic}
-                            </span>
-                         ))}
-                       </div>
-                       
-                       <div className="mt-6 pt-6 border-t border-neutral-800">
-                          <h3 className="text-sm font-mono text-neutral-500 mb-3 flex items-center gap-2"><Crosshair className="w-4 h-4" /> RED FLAGS</h3>
-                          <ul className="space-y-2">
-                            {scanResult.red_flags.map((flag, idx) => (
-                               <li key={idx} className="text-xs text-red-400/90 flex items-start gap-2">
-                                 <span className="text-red-500 mt-0.5 shrink-0">✗</span> {flag}
-                               </li>
+                    <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 relative overflow-hidden">
+                       {credits === 0 && <AILockOverlay onTopUp={() => topUpCredits(10)} />}
+                       <div className={`transition-all duration-300 ${credits === 0 ? 'blur-md opacity-30 select-none pointer-events-none' : ''}`}>
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-mono text-neutral-500 flex items-center gap-2"><Radar className="w-4 h-4" /> VECTORS</h3>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {scanResult.manipulation_tactics.map((tactic, idx) => (
+                               <span key={idx} className="bg-neutral-950 border border-neutral-800 px-3 py-1.5 rounded-lg text-xs font-mono text-neutral-300 flex items-center gap-2">
+                                 <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                 {tactic}
+                               </span>
                             ))}
-                            {scanResult.red_flags.length === 0 && (
-                               <li className="text-xs font-mono text-neutral-500">No flags detected.</li>
-                            )}
-                          </ul>
+                          </div>
+                          
+                          <div className="mt-6 pt-6 border-t border-neutral-800">
+                             <h3 className="text-sm font-mono text-neutral-500 mb-3 flex items-center gap-2"><Crosshair className="w-4 h-4" /> RED FLAGS</h3>
+                             <ul className="space-y-2">
+                               {scanResult.red_flags.map((flag, idx) => (
+                                  <li key={idx} className="text-xs text-red-400/90 flex items-start gap-2">
+                                    <span className="text-red-500 mt-0.5 shrink-0">✗</span> {flag}
+                                  </li>
+                               ))}
+                               {scanResult.red_flags.length === 0 && (
+                                   <li className="text-xs font-mono text-neutral-500">No red flags detected.</li>
+                               )}
+                             </ul>
+                          </div>
                        </div>
                     </div>
 
                     {/* Rekomendasi */}
-                    <div className="bg-emerald-950/20 border border-emerald-900/30 rounded-3xl p-6">
-                       <h3 className="text-sm font-mono text-emerald-500/70 mb-4 flex items-center gap-2"><Lock className="w-4 h-4" /> ACTION PROTOCOL</h3>
-                       <ul className="space-y-3">
-                          {scanResult.recommended_actions.map((action, idx) => (
-                             <li key={idx} className="text-sm text-emerald-100/90 flex items-start gap-3 bg-emerald-900/10 p-3 rounded-xl border border-emerald-500/10">
-                               <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 text-xs font-bold border border-emerald-500/30">
-                                 {idx + 1}
-                               </span> 
-                               <span className="leading-tight pt-0.5">{action}</span>
-                             </li>
-                          ))}
-                       </ul>
+                    <div className="bg-emerald-950/20 border border-emerald-900/30 rounded-3xl p-6 relative overflow-hidden">
+                       {credits === 0 && <AILockOverlay onTopUp={() => topUpCredits(10)} />}
+                       <div className={`transition-all duration-300 ${credits === 0 ? 'blur-md opacity-30 select-none pointer-events-none' : ''}`}>
+                          <h3 className="text-sm font-mono text-emerald-500/70 mb-4 flex items-center gap-2"><Lock className="w-4 h-4" /> ACTION PROTOCOL</h3>
+                          <ul className="space-y-3">
+                             {scanResult.recommended_actions.map((action, idx) => (
+                                <li key={idx} className="text-sm text-emerald-100/90 flex items-start gap-3 bg-emerald-900/10 p-3 rounded-xl border border-emerald-500/10">
+                                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 text-xs font-bold border border-emerald-500/30">
+                                    {idx + 1}
+                                  </span> 
+                                  <span className="leading-tight pt-0.5">{action}</span>
+                                </li>
+                             ))}
+                          </ul>
+                       </div>
                     </div>
                  </div>
 

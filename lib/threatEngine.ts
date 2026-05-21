@@ -7,17 +7,17 @@ export interface ThreatReport {
 
 // Lists of keywords and domains for deterministic heuristic check
 const URGENCY_KEYWORDS = [
-  'segera', 'cepat', '1x24', '24 jam', 'batas waktu', 'blokir', 
+  'segera', 'cepat', '1x24', '24 jam', 'batas waktu', 'blokir',
   'ditangguhkan', 'suspend', 'darurat', 'ancaman', 'denda', 'pinalti',
   'terkunci', 'konfirmasi sekarang', 'sebelum terlambat',
   'akun akan diambil alih'
 ];
 
 const FRAUD_KEYWORDS = [
-  'salah transfer', 'menang undian', 'hadiah shopee', 'pinjol', 
+  'salah transfer', 'menang undian', 'hadiah shopee', 'pinjol',
   'kurir paket', 'surat tilang', 'undian bri', 'bca mobile',
   'dana kaget', 'saldo gratis', 'investasi untung', 'giveaway',
-  'tarif transfer', 'biaya admin baru', 'penyesuaian biaya', 
+  'tarif transfer', 'biaya admin baru', 'penyesuaian biaya',
   'upgrade rekening', 'kode verifikasi', 'jangan bagikan kode', 'otp'
 ];
 
@@ -95,12 +95,12 @@ const BRAND_VERIFICATIONS: { brand: string; keywords: string[]; officialDomains:
 ];
 
 const SUSPICIOUS_TLDS = [
-  '.xyz', '.top', '.icu', '.cf', '.ga', '.gq', '.ml', '.tk', 
+  '.xyz', '.top', '.icu', '.cf', '.ga', '.gq', '.ml', '.tk',
   '.site', '.online', '.click', '.link', '.win', '.loan', '.download'
 ];
 
 const SHORTENED_DOMAINS = [
-  'bit.ly', 's.id', 'cutt.ly', 'tinyurl.com', 't.co', 
+  'bit.ly', 's.id', 'cutt.ly', 'tinyurl.com', 't.co',
   'rebrand.ly', 'tiny.cc', 'shorturl.at'
 ];
 
@@ -134,11 +134,11 @@ export function calculateThreatScore(
   const redFlags: string[] = [];
   const triggers: string[] = [];
   let hasBrandImpersonation = false;
-  
+
   const textLower = text.toLowerCase();
 
   // --- 1. OSINT Signals ---
-  
+
   // Google Safe Browsing
   if (osintResults.safe_browsing?.malicious) {
     score += 45;
@@ -146,7 +146,7 @@ export function calculateThreatScore(
     triggers.push('google_safe_browsing_hit');
   }
 
-  // VirusTotal — Proportional scoring based on detection ratio
+  // VirusTotal Proportional scoring based on detection ratio
   if (osintResults.virustotal) {
     const malicious = osintResults.virustotal.malicious_votes;
     const suspicious = osintResults.virustotal.suspicious_votes;
@@ -178,13 +178,13 @@ export function calculateThreatScore(
   if (osintResults.urlscan) {
     const domScore = osintResults.urlscan.dom_score;
     const flags = osintResults.urlscan.flags || [];
-    
+
     if (domScore !== undefined && domScore < 40) {
       score += 20;
       redFlags.push('Domain memiliki reputasi web yang sangat rendah berdasarkan analisis URLScan.');
       triggers.push('urlscan_low_score');
     }
-    
+
     if (flags.includes('phishing_heuristic') || flags.includes('suspicious_login_page')) {
       score += 15;
       redFlags.push('Halaman web memiliki indikator phishing atau form login palsu.');
@@ -198,7 +198,7 @@ export function calculateThreatScore(
   }
 
   // --- 2. URL and Domain Heuristics ---
-  
+
   for (const urlStr of urls) {
     try {
       const url = new URL(urlStr.startsWith('http') ? urlStr : `http://${urlStr}`);
@@ -240,7 +240,7 @@ export function calculateThreatScore(
         const mentionsBrand = brandCheck.keywords.some(kw => hostname.includes(kw));
         if (mentionsBrand) {
           // Check if domain is official
-          const isOfficial = brandCheck.officialDomains.some(official => 
+          const isOfficial = brandCheck.officialDomains.some(official =>
             hostname === official || hostname.endsWith(`.${official}`)
           );
           if (!isOfficial) {
@@ -262,7 +262,7 @@ export function calculateThreatScore(
   }
 
   // --- 3. Text content heuristics ---
-  
+
   // Urgency check
   const matchedUrgency = URGENCY_KEYWORDS.filter(kw => textLower.includes(kw));
   if (matchedUrgency.length >= 2) {
@@ -295,7 +295,7 @@ export function calculateThreatScore(
   }
 
   // --- 4. Negative Signals (score reduction for safe indicators) ---
-  
+
   if (!hasBrandImpersonation && score < 60) {
     for (const urlStr of urls) {
       try {

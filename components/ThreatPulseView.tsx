@@ -101,7 +101,7 @@ const CAMPAIGN_FLOWS = [
     steps: ["SMS / WA Alert", "Shortlink Redirect", "Fake BCA Domain", "OTP Stealer"],
     impact: "Pengambilalihan M-banking, saldo dikuras habis.",
     vector: "LINK",
-    confidence: "98% (CRITICAL, verified by VirusTotal)",
+    confidence: "98% (KRITIS, diverifikasi oleh VirusTotal)",
     status: "ACTIVE",
     severity: "CRITICAL"
   },
@@ -110,7 +110,7 @@ const CAMPAIGN_FLOWS = [
     steps: ["WhatsApp Chat", "File APK Undangan", "SMS Permissions", "OTP Forwarder"],
     impact: "Pencurian SMS OTP, pengambilalihan akun Whatsapp.",
     vector: "APK",
-    confidence: "96% (CRITICAL, verified by Abuse.ch)",
+    confidence: "96% (KRITIS, diverifikasi oleh Abuse.ch)",
     status: "ACTIVE",
     severity: "CRITICAL"
   },
@@ -119,7 +119,7 @@ const CAMPAIGN_FLOWS = [
     steps: ["Stiker QRIS Palsu", "Toko / Merchant Scan", "Payment Redirect", "Direct Transfer"],
     impact: "Kerugian finansial konsumen, reputasi merchant rusak.",
     vector: "QRIS",
-    confidence: "92% (HIGH, verified by Laporan Warga)",
+    confidence: "92% (TINGGI, diverifikasi oleh Laporan Warga)",
     status: "ACTIVE",
     severity: "MEDIUM"
   },
@@ -128,7 +128,7 @@ const CAMPAIGN_FLOWS = [
     steps: ["Call Spoofing", "Kasir / CS Palsu", "Social Engineering", "Account Transfer"],
     impact: "WhatsApp diambil alih secara penuh untuk penipuan.",
     vector: "SOCIAL_ENGINEERING",
-    confidence: "91% (HIGH, verified by Kominfo)",
+    confidence: "91% (TINGGI, diverifikasi oleh Kominfo)",
     status: "ACTIVE",
     severity: "HIGH"
   }
@@ -333,18 +333,18 @@ export function ThreatPulseView() {
             LIVE SECURITY SITUATIONAL AWARENESS
             {refreshing && (
               <span className="flex items-center gap-1 text-neutral-500 text-[9px] font-normal animate-pulse ml-2 font-sans tracking-normal">
-                <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Synchronizing Feeds...
+                <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Syncing Feed...
               </span>
             )}
           </div>
           <h1 className="text-3xl md:text-4xl font-display font-medium tracking-tight text-white flex items-center gap-2.5">
             VERIX Pulse
             <span className="text-[10px] bg-red-500/10 border border-red-500/20 text-red-400 font-mono px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">
-              Level Orange
+              Orange Level
             </span>
           </h1>
           <p className="text-neutral-400 text-sm md:text-base leading-relaxed mt-1">
-            Indonesia is under elevated phishing and malware campaigns. Real-time telemetry is actively analyzing, scoring, and tracing payloads.
+            Indonesia berada di bawah kampanye phishing dan malware yang meningkat. Telemetri real-time secara aktif menganalisis, menilai, dan melacak muatan.
           </p>
         </div>
 
@@ -395,7 +395,7 @@ export function ThreatPulseView() {
           <div className="flex-1 relative min-h-[350px] lg:min-h-[400px]">
             <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-[#111111]/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-neutral-800/80">
               <Globe className="w-3.5 h-3.5 text-emerald-400 animate-spin-slow" />
-              <span className="text-[10px] font-mono text-neutral-400 tracking-wider">INDONESIA SCAN ZONE ACTIVE</span>
+              <span className="text-[10px] font-mono text-neutral-400 tracking-wider">ACTIVE INDONESIA SCAN ZONE</span>
             </div>
 
             {(() => {
@@ -479,7 +479,7 @@ export function ThreatPulseView() {
                       )}
                     </div>
 
-                    <div className="border-t border-neutral-900 pt-2.5 flex flex-col gap-1 text-[10px]">
+                      <div className="border-t border-neutral-900 pt-2.5 flex flex-col gap-1 text-[10px]">
                       <div className="flex justify-between">
                         <span className="text-neutral-500">Target Entity:</span>
                         <span className="text-white font-mono font-medium">{hoveredThreat.target_brand || "General Public"}</span>
@@ -556,7 +556,7 @@ export function ThreatPulseView() {
               <div className="flex items-center justify-between border-b border-neutral-900/60 pb-2">
                 <div className="flex items-center gap-1.5">
                   <Server className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-                  <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest font-semibold">VERIX Situational Aware</span>
+                  <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest font-semibold">VERIX Situational Awareness</span>
                 </div>
                 
                 {intel?.report?.risk_assessment && (
@@ -584,7 +584,7 @@ export function ThreatPulseView() {
                           : "text-neutral-500 hover:text-neutral-300"
                       }`}
                     >
-                      {tab === 'status' ? 'Status' : tab === 'trends' ? 'Tren' : 'Aksi'}
+                      {tab === 'status' ? 'Status' : tab === 'trends' ? 'Trends' : 'Actions'}
                     </button>
                   ))}
                 </div>
@@ -608,7 +608,7 @@ export function ThreatPulseView() {
                         return (
                           <div className="flex flex-col gap-1 bg-white/[0.01] border border-white/5 rounded-xl p-2.5 mt-0.5">
                             <div className="flex justify-between text-[9px] font-mono font-medium">
-                              <span className="text-neutral-500 uppercase">Indeks Bahaya</span>
+                              <span className="text-neutral-500 uppercase">Danger Index</span>
                               <span className={`${
                                 assessment === 'CRITICAL' ? 'text-red-400' :
                                 assessment === 'HIGH' ? 'text-orange-400' :
@@ -638,11 +638,11 @@ export function ThreatPulseView() {
                           >
                             {isReportExpanded ? (
                               <>
-                                Sembunyikan <ChevronUp className="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform" />
+                                Collapse <ChevronUp className="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform" />
                               </>
                             ) : (
                               <>
-                                Baca Selengkapnya <ChevronDown className="w-3.5 h-3.5 group-hover:translate-y-0.5 transition-transform" />
+                                Read More <ChevronDown className="w-3.5 h-3.5 group-hover:translate-y-0.5 transition-transform" />
                               </>
                             )}
                           </button>
@@ -661,7 +661,7 @@ export function ThreatPulseView() {
                           </div>
                         ))
                       ) : (
-                        <span className="text-[11px] text-neutral-500 font-mono text-center py-4">Tidak ada tren aktif yang dilaporkan.</span>
+                        <span className="text-[11px] text-neutral-500 font-mono text-center py-4">No active trends reported.</span>
                       )}
                     </div>
                   )}
@@ -676,7 +676,7 @@ export function ThreatPulseView() {
                           </div>
                         ))
                       ) : (
-                        <span className="text-[11px] text-neutral-500 font-mono text-center py-4">Tidak ada rekomendasi aksi saat ini.</span>
+                        <span className="text-[11px] text-neutral-500 font-mono text-center py-4">No recommended actions at this time.</span>
                       )}
                     </div>
                   )}
@@ -684,7 +684,7 @@ export function ThreatPulseView() {
               ) : (
                 <div className="py-8 text-center text-neutral-500 text-xs font-mono">
                   <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-2 text-emerald-500" />
-                  Menganalisis feed berita scam nasional...
+                  Analyzing national scam intelligence feed...
                 </div>
               )}
             </div>
@@ -720,7 +720,7 @@ export function ThreatPulseView() {
 
             {/* Live Telemetry Log Feed */}
             <div className="flex flex-col gap-3.5 pt-2">
-              <h4 className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">Live Scanner Logs</h4>
+              <h4 className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">Live Scanner Log</h4>
               <div className="flex flex-col gap-2 font-mono text-[9px] bg-black/40 border border-neutral-900/60 rounded-lg p-3 h-40 overflow-y-auto no-scrollbar divide-y divide-neutral-900/30">
                 {threats.slice(0, 5).map((t, idx) => (
                   <div key={idx} className="py-1.5 first:pt-0 last:pb-0 text-neutral-400 flex flex-col gap-0.5">
@@ -812,16 +812,16 @@ export function ThreatPulseView() {
             {/* Lower Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-neutral-900/60 pt-5 mt-5 text-xs">
               <div className="flex flex-col gap-1">
-                <span className="text-neutral-500 font-mono text-[10px] uppercase">Why This Matters:</span>
+                <span className="text-neutral-500 font-mono text-[10px] uppercase">Mengapa Ini Penting:</span>
                 <span className="text-neutral-300 leading-relaxed font-light">
                   {CAMPAIGN_FLOWS[selectedCampaignTab].impact}
                 </span>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-neutral-500 font-mono text-[10px] uppercase">Attack Vector:</span>
+                <span className="text-neutral-500 font-mono text-[10px] uppercase">Vektor Serangan:</span>
                 <span className="text-neutral-300 font-mono flex items-center gap-1.5 mt-0.5">
                   <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-                  {CAMPAIGN_FLOWS[selectedCampaignTab].vector} Network Payload
+                  {CAMPAIGN_FLOWS[selectedCampaignTab].vector} Muatan Jaringan
                 </span>
               </div>
             </div>
@@ -839,11 +839,11 @@ export function ThreatPulseView() {
               <h2 className="text-base font-display font-medium text-white">Live Threat Timeline</h2>
               <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[9px] font-mono text-emerald-400 font-semibold tracking-wider uppercase animate-pulse">
                 <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping" />
-                Live Stream
+                Live Broadcast
               </div>
             </div>
             <p className="text-neutral-400 text-xs mt-0.5 leading-relaxed">
-              Real-world intelligence feeds mapped and processed alongside platform telemetries. Click any node to open detailed forensics.
+              Real-world intelligence feeds mapped and processed alongside platform telemetry. Click any node to open detailed forensics.
             </p>
           </div>
 
@@ -854,7 +854,7 @@ export function ThreatPulseView() {
               <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Cari merek/taktik..."
+                placeholder="Search brand/tactic..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-[#0B0B0C]/70 backdrop-blur-md border border-neutral-850 hover:border-emerald-500/30 text-xs text-white placeholder-neutral-500 pl-9 pr-4 py-1.5 rounded-lg focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 w-full md:w-44 transition-all duration-300 font-mono"
@@ -898,12 +898,12 @@ export function ThreatPulseView() {
           {loading ? (
             <div className="py-24 text-center text-neutral-500 font-mono flex flex-col items-center justify-center gap-3">
               <RefreshCw className="w-6 h-6 animate-spin text-emerald-400" />
-              <span>Synchronizing cinematic cyber threat streams...</span>
+              <span>Syncing threat intelligence stream...</span>
             </div>
           ) : filteredThreats.length === 0 ? (
             <div className="py-24 text-center text-neutral-500 font-mono flex flex-col items-center justify-center gap-2">
               <ShieldAlert className="w-6 h-6 text-neutral-600" />
-              <span>No threat nodes found matching the filter criteria.</span>
+              <span>No threat nodes found matching filter criteria.</span>
             </div>
           ) : (
             <div 
@@ -991,9 +991,9 @@ export function ThreatPulseView() {
         <div className="mt-4 flex flex-col md:flex-row justify-between items-center gap-2 text-[10px] text-neutral-500 font-mono">
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Aggregating real-world news feeds & platform telemetry signals.</span>
+            <span>Merging real-world news feeds & platform telemetry signals.</span>
           </div>
-          <span>Powered by Abuse.ch, TurnBackHoax.id, & Google News.</span>
+          <span>Didukung oleh Abuse.ch, TurnBackHoax.id, & Google News.</span>
         </div>
       </div>
 
@@ -1045,7 +1045,7 @@ export function ThreatPulseView() {
                     <span className="text-emerald-400 font-semibold">{selectedThreat.vector}</span>
                   </div>
                   <div className="mt-1">
-                    <span className="text-neutral-500 block mb-0.5">TARGET BRAND</span>
+                    <span className="text-neutral-500 block mb-0.5">TARGET ENTITY</span>
                     <span className="text-neutral-300 font-semibold">{selectedThreat.target_brand || "General Public"}</span>
                   </div>
                   <div className="mt-1">
@@ -1057,13 +1057,13 @@ export function ThreatPulseView() {
                 {/* Analysis Story */}
                 <div className="flex flex-col gap-1.5">
                   <span className="font-mono text-[10px] text-neutral-500 uppercase">Description / Forensics:</span>
-                  <p className="text-neutral-300 leading-relaxed font-light font-sans">{selectedThreat.story || "Analisis forensik terperinci untuk insiden ini sedang dihimpun oleh mesin deteksi ancaman VERIX."}</p>
+                  <p className="text-neutral-300 leading-relaxed font-light font-sans">{selectedThreat.story || "Detailed forensic analysis for this incident is being compiled by the VERIX threat detection engine."}</p>
                 </div>
 
                 {/* Impact */}
                 <div className="flex flex-col gap-1.5 border-t border-neutral-900/50 pt-3">
                   <span className="font-mono text-[10px] text-neutral-500 uppercase">Impact Assessment:</span>
-                  <p className="text-neutral-300 leading-relaxed font-light font-sans">{selectedThreat.impact || "Modus ini dapat menyebabkan kerugian kredensial transaksi perbankan secara langsung."}</p>
+                  <p className="text-neutral-300 leading-relaxed font-light font-sans">{selectedThreat.impact || "This pattern may directly lead to banking credential theft and unauthorized transaction losses."}</p>
                 </div>
 
                 {selectedThreat.url && (

@@ -60,7 +60,7 @@ export function Footer({ setActiveTab }: FooterProps) {
           <div className="flex flex-col gap-4">
             <h4 className="text-xs font-mono font-bold tracking-widest text-neutral-300 uppercase flex items-center gap-1.5">
               <Database className="w-3.5 h-3.5 text-emerald-500" />
-              SUMBER DATA FEED
+              DATA FEED SOURCES
             </h4>
             <ul className="flex flex-col gap-3 text-sm">
               <li>
@@ -117,7 +117,7 @@ export function Footer({ setActiveTab }: FooterProps) {
           <div className="flex flex-col gap-4">
             <h4 className="text-xs font-mono font-bold tracking-widest text-neutral-300 uppercase flex items-center gap-1.5">
               <Activity className="w-3.5 h-3.5 text-emerald-500" />
-              NAVIGASI FITUR
+              PLATFORM NAVIGATION
             </h4>
             <ul className="flex flex-col gap-3 text-sm">
               {setActiveTab ? (
@@ -170,13 +170,13 @@ export function Footer({ setActiveTab }: FooterProps) {
           <div className="flex flex-col gap-4">
             <h4 className="text-xs font-mono font-bold tracking-widest text-neutral-300 uppercase flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5 text-emerald-500" />
-              SISTEM & HUKUM
+              SYSTEM & LEGAL
             </h4>
             <div className="flex flex-col gap-3 text-xs leading-relaxed text-neutral-500">
               <div className="flex items-start gap-1.5 bg-[#0A0A0C] border border-neutral-900 p-2.5 rounded-lg">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-500/80 shrink-0 mt-0.5" />
                 <p>
-                  <strong className="text-neutral-400">Pernyataan Penting:</strong> Hasil verifikasi risiko diproses secara otomatis menggunakan model AI heuristik dan basis data publik. Selalu verifikasi ulang informasi penting Anda.
+                  <strong className="text-neutral-400">Disclaimer:</strong> Risk verification results are processed automatically using AI heuristic models and public databases. Always verify important information independently.
                 </p>
               </div>
               <div className="flex items-center gap-1.5 pl-1">
@@ -191,7 +191,7 @@ export function Footer({ setActiveTab }: FooterProps) {
         {/* Bottom Bar: Copyright & Info */}
         <div className="pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs font-mono text-neutral-500">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span>&copy; {currentYear} VERIX. Hak Cipta Dilindungi.</span>
+            <span>&copy; {currentYear} VERIX. All Rights Reserved.</span>
             <span className="text-neutral-800">|</span>
             <span className="flex items-center gap-1">
               <Globe className="w-3 h-3 text-neutral-600" />

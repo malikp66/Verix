@@ -79,10 +79,34 @@ export function useAICredits() {
       }
       return false;
     } catch (e) {
-      console.error(e);
+      console.error('Failed to consume credits:', e);
       return false;
     }
   };
 
-  return { credits, maxCredits, isCreditLoading, consumeCredit };
+  const topUpCredits = async (amount: number = 10): Promise<boolean> => {
+    if (!user) {
+      const current = credits ?? GUEST_DAILY_LIMIT;
+      const newCredits = current + amount;
+      localStorage.setItem('verix_guest_credits', newCredits.toString());
+      setCredits(newCredits);
+      return true;
+    }
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      // Get the document from server to ensure accuracy
+      const snap = await getDocFromServer(userRef);
+      const current = snap.exists() ? (snap.data().aiCredits ?? USER_MONTHLY_LIMIT) : USER_MONTHLY_LIMIT;
+      await setDoc(userRef, { aiCredits: current + amount }, { merge: true });
+      return true;
+    } catch (e) {
+      console.error('Failed to top up credits in Firestore, falling back to local state:', e);
+      setCredits(prev => (prev !== null ? prev + amount : amount));
+      return false;
+    }
+  };
+
+  return { credits, maxCredits, isCreditLoading, consumeCredit, topUpCredits };
 }
+
