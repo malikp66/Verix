@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from "next/server";
 import { generateLocalThreats, buildInsights, ThreatItem } from "@/lib/threatFeeds";
 
@@ -79,20 +81,22 @@ export async function GET() {
     globalThreats = globalCache.threats;
   } else {
     try {
-      // Fetch URLhaus as the primary real-world feed
+      console.log("[Threats API] Cache expired. Fetching Abuse.ch URLhaus...");
       const realUrls = await fetchRecentAbuseCh();
-      if (realUrls && realUrls.length > 0) {
-        globalThreats = realUrls;
-        globalCache = {
-          threats: globalThreats,
-          lastFetched: now
-        };
-      }
+      globalThreats = realUrls.length > 0 ? realUrls : (globalCache?.threats || []);
+      
+      // Update cache even if it returned empty, to avoid spamming the API on every single request
+      globalCache = {
+        threats: globalThreats,
+        lastFetched: now
+      };
     } catch (e) {
-      console.warn("Real-time threat feed fetch failed. Using empty array for global feeds.", e);
-      if (globalCache) {
-        globalThreats = globalCache.threats; // Serve stale cache
-      }
+      console.warn("Real-time threat feed fetch failed. Using stale cache or empty.", e);
+      globalThreats = globalCache?.threats || [];
+      globalCache = {
+        threats: globalThreats,
+        lastFetched: now // Prevent retries for CACHE_TTL
+      };
     }
   }
 

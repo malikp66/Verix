@@ -24,13 +24,26 @@ export function IntelligenceProvider({ children }: { children: React.ReactNode }
 
     fetchIntel();
     
-    // Pseudo-realtime polling (10s) creates active dashboard feel
-    // Hits efficient server-side cache, keeping costs near absolute zero.
-    const timer = setInterval(fetchIntel, 10000); 
+    // Polling interval of 90s (visibility-aware) keeps costs absolute zero
+    // while maintaining a fresh experience when active.
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchIntel();
+      }
+    }, 90000); 
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isMounted) {
+        fetchIntel();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
       isMounted = false;
       clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

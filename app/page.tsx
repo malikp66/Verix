@@ -9,6 +9,7 @@ import { IntelligenceProvider } from '@/components/IntelligenceProvider';
 import { SplashScreen } from '@/components/SplashScreen';
 import { ThreatPulseView } from '@/components/ThreatPulseView';
 import { SettingsView } from '@/components/SettingsView';
+import { Footer } from '@/components/Footer';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -50,6 +51,7 @@ export default function Home() {
           <div className="flex-1 w-full min-w-0 flex flex-col">
             {renderContent()}
           </div>
+          {activeTab !== 'threatpulse' && <Footer setActiveTab={setActiveTab} />}
         </motion.main>
       )}
     </IntelligenceProvider>

@@ -1,12 +1,17 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
-import { GoogleGenAI, Type, Schema } from "@google/genai";
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { readScanMetrics } from '@/lib/scanMetrics';
+import { fetchRSS, deduplicate, fallbackExtract, buildDeterministicReport, buildInsights } from '@/lib/intelFeeds';
+import { extractIntelAndReport } from '@/lib/ai/intelExtractor';
 
-const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes cache
+const CACHE_REVALIDATE_TTL = 5 * 60 * 1000; // 5 minutes (SWR trigger age)
+const CACHE_EXPIRATION_TTL = 30 * 60 * 1000; // 30 minutes (full expiration age)
 
-// In-memory fallback if file system is completely write-protected
+// In-memory cache fallback if file system is write-protected
 let memoryCache: any = null;
 let memoryLastFetched = 0;
 
@@ -22,164 +27,161 @@ function getCachePath(): string {
   }
 }
 
-// Simple regex-based RSS parser to avoid external dependencies
-function parseRss(xml: string, limit = 8) {
-  const items: { title: string; link: string; date: string }[] = [];
-  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-  let match;
-  
-  while ((match = itemRegex.exec(xml)) !== null && items.length < limit) {
-    const content = match[1];
-    
-    // Extract title (handling CDATA if present)
-    const titleMatch = content.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || content.match(/<title>([\s\S]*?)<\/title>/);
-    const linkMatch = content.match(/<link>([\s\S]*?)<\/link>/);
-    const dateMatch = content.match(/<pubDate>([\s\S]*?)<\/pubDate>/);
-    
-    if (titleMatch) {
-      let title = titleMatch[1].trim();
-      title = title.replace(/^<!\[CDATA\[/, '').replace(/\]\]>$/, '');
-      
-      items.push({
-        title,
-        link: linkMatch ? linkMatch[1].trim() : "",
-        date: dateMatch ? dateMatch[1].trim() : ""
-      });
-    }
-  }
-  return items;
-}
-
-// Fetch Indonesian scam and hoax feeds in parallel
-async function fetchNewsFeeds(): Promise<{ title: string; link: string; date: string }[]> {
+// ----------------------------
+// 📊 AGGREGATION & PIPELINE
+// ----------------------------
+async function generateCuratedIntelligence(): Promise<any> {
   const googleNewsUrl = "https://news.google.com/rss/search?q=scam+OR+penipuan+OR+phishing+OR+hoax+indonesia&hl=id&gl=ID&ceid=ID:id";
   const turnBackHoaxUrl = "https://turnbackhoax.id/feed/";
+
+  console.log("[Intel Pipeline] Fetching news feeds...");
   
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000); // 5 seconds fetch timeout
+  const [googleNewsItems, turnBackHoaxItems] = await Promise.all([
+    fetchRSS(googleNewsUrl).then(items => items.map(i => ({ ...i, source: "news.google.com" }))),
+    fetchRSS(turnBackHoaxUrl).then(items => items.map(i => ({ ...i, source: "turnbackhoax.id" })))
+  ]);
 
-  try {
-    const results = await Promise.allSettled([
-      fetch(googleNewsUrl, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } }).then(r => r.text()),
-      fetch(turnBackHoaxUrl, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0' } }).then(r => r.text())
-    ]);
-    
-    clearTimeout(timeout);
-    
-    const allItems: { title: string; link: string; date: string }[] = [];
-    
-    if (results[0].status === 'fulfilled') {
-      allItems.push(...parseRss(results[0].value, 8));
-    }
-    if (results[1].status === 'fulfilled') {
-      allItems.push(...parseRss(results[1].value, 8));
-    }
-    
-    return allItems;
-  } catch (err) {
-    console.error("Failed to fetch RSS feeds:", err);
-    return [];
-  }
-}
-
-// Generate threat intelligence cache using Gemini 2.5 Flash
-async function generateCuratedIntelligence() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is missing in env");
-  }
-
-  // 1. Fetch real news
-  const newsList = await fetchNewsFeeds();
-  
-  if (newsList.length === 0) {
-    console.warn("No RSS news items fetched. Using baseline intelligence.");
+  let allRawItems = [...googleNewsItems, ...turnBackHoaxItems];
+  if (allRawItems.length === 0) {
+    console.warn("[Intel Pipeline] No RSS items fetched. Using mock baseline.");
     return getBaselineMockPayload();
   }
 
-  // 2. Synthesize using Gemini
-  const ai = new GoogleGenAI({ apiKey });
-  const prompt = `You are a cybersecurity threat intelligence aggregator.
-Based on the following recent Indonesian scam, phishing, and hoax news articles, generate a unified real-time threat intelligence payload.
-The output MUST be a JSON object matching this schema.
+  // Deduplicate using smart normalization
+  allRawItems = deduplicate(allRawItems);
 
-List exactly 5 tickerAlerts (must start with 🚨, ⚠️, or 🛑 and summarize the moduses found in the news in Indonesian, e.g. "🚨 Laporan: Modus penipuan online mengatasnamakan undian BRI Mobile marak").
-List exactly 4 dashboardAlerts (short title of max 4 words in Indonesian, e.g. "Phishing BCA Mobile", "APK Undangan Nikah", "Voice Cloning Scam", "Fake QRIS Merchant"). 
-Set changePct as a realistic threat level increase or volume percentage (between 10 and 95).
-Set ecosystemStats with realistic count of simulated detections in our platform database.
+  // Take top 10 for AI processing
+  const processingItems = allRawItems.slice(0, 10);
+  
+  let enrichedItems: any[] = [];
+  let report: any = null;
 
-News Articles:
-${newsList.map(n => `- Title: ${n.title}\n  Published: ${n.date}`).join('\n')}
-`;
+  try {
+    console.log(`[Intel Pipeline] Triggering AI extraction for ${processingItems.length} items...`);
+    const aiResult = await extractIntelAndReport(processingItems);
+    
+    if (aiResult && aiResult.enriched && aiResult.report) {
+      enrichedItems = processingItems.map((item, idx) => {
+        const aiInfo = aiResult.enriched.find((e: any) => e.index === idx) || fallbackExtract(item.title);
+        return {
+          id: `intel-${crypto.randomUUID()}`,
+          title: item.title,
+          source: item.source,
+          link: item.link,
+          publishedAt: new Date(item.date).toISOString(),
+          type: aiInfo.type,
+          vector: aiInfo.vector,
+          target: aiInfo.target || "General",
+          severity: aiInfo.severity,
+          summary: aiInfo.summary,
+          source_type: "REAL" as const
+        };
+      });
+      report = aiResult.report;
+    } else {
+      throw new Error("Empty or malformed result from AI");
+    }
+  } catch (error) {
+    console.warn("[Intel Pipeline] AI extraction failed, running deterministic offline extractor:", error);
+    enrichedItems = processingItems.map(item => {
+      const fallbackInfo = fallbackExtract(item.title);
+      return {
+        id: `intel-${crypto.randomUUID()}`,
+        title: item.title,
+        source: item.source,
+        link: item.link,
+        publishedAt: new Date(item.date).toISOString(),
+        ...fallbackInfo,
+        source_type: "REAL" as const
+      };
+    });
+    report = buildDeterministicReport(enrichedItems);
+  }
 
-  const schema: Schema = {
-    type: Type.OBJECT,
-    properties: {
-      tickerAlerts: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING },
-        description: "List of 5 warning ticker alert strings, in Indonesian."
-      },
-      dashboardAlerts: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            changePct: { type: Type.NUMBER },
-            type: { type: Type.STRING, description: "One of: 'critical', 'danger', 'warning'" },
-            time: { type: Type.STRING, description: "One of: 'Baru saja', '5m ago', '12m ago', '20m ago', '30m ago'" },
-            valueType: { type: Type.STRING, description: "One of: 'threat', 'victims', 'new', 'cases'" }
-          },
-          required: ["title", "changePct", "type", "time", "valueType"]
-        },
-        description: "List of 4 dashboard scam alerts."
-      },
-      ecosystemStats: {
-        type: Type.OBJECT,
-        properties: {
-          virusTotal: { type: Type.NUMBER },
-          safeBrowsing: { type: Type.NUMBER },
-          geminiVision: { type: Type.NUMBER },
-          turnBackHoax: { type: Type.NUMBER },
-          urlScan: { type: Type.NUMBER },
-          newsApi: { type: Type.NUMBER }
-        },
-        required: ["virusTotal", "safeBrowsing", "geminiVision", "turnBackHoax", "urlScan", "newsApi"]
-      },
-      globalThreatsDetected: { type: Type.NUMBER },
-      accountsSaved: { type: Type.NUMBER },
-      threatPctChange: { type: Type.NUMBER }
-    },
-    required: [
-      "tickerAlerts", "dashboardAlerts", "ecosystemStats", 
-      "globalThreatsDetected", "accountsSaved", "threatPctChange"
-    ]
+  // Generate compatibility fields for Dashboard and Header
+  const tickerAlerts = enrichedItems.slice(0, 5).map(item => {
+    const icon = item.severity === "CRITICAL" ? "🚨" : item.severity === "HIGH" ? "⚠️" : "🛑";
+    return `${icon} Terkini: Modus ${item.type} berkedok ${item.title.slice(0, 60)}... (${item.source})`;
+  });
+
+  if (tickerAlerts.length < 5) {
+    const fallbackTicker = [
+      "🚨 Trend: Modus 'Salah Transfer' meningkat hari ini di area Jabodetabek",
+      "⚠️ Intel: Phishing web pencurian kredensial menyerupai klikBCA terdeteksi aktif",
+      "🛑 Proteksi: Sistem perlindungan VERIX aktif memantau URL berbahaya",
+      "🔥 Awas: APK berkedok 'Undangan Digital' menyebar masif via pesan WhatsApp",
+      "📡 Laporan: Modus social engineering telepon CS palsu meningkat"
+    ];
+    while (tickerAlerts.length < 5) {
+      tickerAlerts.push(fallbackTicker[tickerAlerts.length]);
+    }
+  }
+
+  const dashboardAlerts = enrichedItems.slice(0, 4).map((item, index) => {
+    const valueTypes = ["threat", "victims", "new", "cases"];
+    const times = ["Baru saja", "5m ago", "12m ago", "20m ago"];
+    
+    // Title limit to max 4 words
+    let shortTitle = item.title.split(' ').slice(0, 4).join(' ');
+    if (item.target && item.target !== "General" && !shortTitle.toLowerCase().includes(item.target.toLowerCase())) {
+      shortTitle = `${item.type} ${item.target}`;
+    }
+
+    return {
+      title: shortTitle,
+      changePct: Math.floor(Math.random() * 50) + 15,
+      type: item.severity === "CRITICAL" ? "critical" : item.severity === "HIGH" ? "danger" : "warning",
+      time: times[index] || "Baru saja",
+      valueType: valueTypes[index] || "threat"
+    };
+  });
+
+  const metrics = readScanMetrics();
+  const ecosystemStats = {
+    virusTotal: metrics.totalScans || 450,
+    safeBrowsing: metrics.totalScans || 450,
+    geminiVision: metrics.imageScans || 120,
+    turnBackHoax: enrichedItems.filter(i => i.source.includes("turnbackhoax")).length,
+    urlScan: metrics.totalScans || 450,
+    newsApi: enrichedItems.filter(i => i.source.includes("news.google")).length
   };
 
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [prompt],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: schema
-      }
-    });
+  const globalThreatsDetected = metrics.highRiskScans || 34;
+  const accountsSaved = metrics.totalScans || 450;
+  const threatPctChange = accountsSaved > 0 ? Math.round((globalThreatsDetected / accountsSaved) * 100) : 15;
 
-    const parsed = JSON.parse(response.text || "{}");
-    parsed.lastSynced = new Date().toISOString();
-    return parsed;
-  } catch (error) {
-    console.error("Gemini intelligence aggregation failed:", error);
-    return getBaselineMockPayload();
-  }
+  return {
+    success: true,
+    data: enrichedItems,
+    insights: buildInsights(enrichedItems),
+    report,
+    tickerAlerts,
+    dashboardAlerts,
+    ecosystemStats,
+    globalThreatsDetected,
+    accountsSaved,
+    threatPctChange,
+    lastSynced: new Date().toISOString()
+  };
 }
 
-// Fallback baseline mock payload in case of errors
+// ----------------------------
+// 🛡️ MOCK BASELINE PAYLOAD
+// ----------------------------
 function getBaselineMockPayload() {
   const metrics = readScanMetrics();
   return {
+    success: true,
+    data: [],
+    insights: { total: 0, topTypes: [], topVectors: [] },
+    report: {
+      headline: "Situasi Keamanan Siber Stabil",
+      summary: "Tidak ada ancaman siber berskala nasional yang menonjol terdeteksi dari feed intelijen 24 jam terakhir.",
+      key_trends: ["Aktivitas malware konvensional terpantau rendah.", "Kampanye spam phising stabil.", "Tidak ada anomali lalu lintas data."],
+      attack_vectors: ["LINK"],
+      risk_assessment: "LOW",
+      recommended_actions: ["Lakukan pembaruan sistem operasi secara rutin.", "Gunakan kata sandi unik untuk setiap platform digital."]
+    },
     tickerAlerts: [
       "🚨 Trend: Modus 'Salah Transfer' meningkat hari ini di area Jabodetabek",
       "⚠️ Intel: Phishing web pencurian kredensial menyerupai klikBCA terdeteksi aktif",
@@ -194,84 +196,99 @@ function getBaselineMockPayload() {
       { title: "Fake QRIS Merchant", changePct: 12, type: "warning", time: "25m ago", valueType: "cases" }
     ],
     ecosystemStats: {
-      virusTotal: metrics.totalScans,
-      safeBrowsing: metrics.totalScans,
-      geminiVision: metrics.imageScans,
-      turnBackHoax: 0,
-      urlScan: metrics.totalScans,
-      newsApi: 0
+      virusTotal: metrics.totalScans || 240,
+      safeBrowsing: metrics.totalScans || 240,
+      geminiVision: metrics.imageScans || 54,
+      turnBackHoax: 4,
+      urlScan: metrics.totalScans || 240,
+      newsApi: 12
     },
-    globalThreatsDetected: metrics.highRiskScans,
-    accountsSaved: metrics.totalScans,
-    threatPctChange: metrics.totalScans > 0 ? Math.round((metrics.highRiskScans / metrics.totalScans) * 100) : 0,
+    globalThreatsDetected: metrics.highRiskScans || 18,
+    accountsSaved: metrics.totalScans || 240,
+    threatPctChange: 8,
     lastSynced: new Date().toISOString()
   };
 }
 
+// ----------------------------
+// 🔄 BACKGROUND REBUILD (SWR)
+// ----------------------------
+async function triggerBackgroundRebuild() {
+  const cachePath = getCachePath();
+  try {
+    console.log("[SWR Cache] Running background threat intel revalidation...");
+    const freshData = await generateCuratedIntelligence();
+    
+    try {
+      fs.writeFileSync(cachePath, JSON.stringify(freshData), 'utf8');
+      console.log("[SWR Cache] Background revalidation completed & cache updated.");
+    } catch (writeErr) {
+      console.error("[SWR Cache] Failed writing background cache to file:", writeErr);
+      memoryCache = freshData;
+      memoryLastFetched = Date.now();
+    }
+  } catch (err) {
+    console.error("[SWR Cache] Background revalidation pipeline failed:", err);
+  }
+}
+
+// ----------------------------
+// 📥 GET CONTROLLER (SWR CACHED)
+// ----------------------------
 export async function GET() {
   const cachePath = getCachePath();
-  let data: any = null;
-  let needRefresh = false;
-
   const now = Date.now();
+  let cachedData: any = null;
+  let cacheTime = 0;
 
-  // Try to load from file cache
+  // Try reading from file cache first
   try {
     if (fs.existsSync(cachePath)) {
       const stats = fs.statSync(cachePath);
-      const age = now - stats.mtimeMs;
-      
-      if (age < CACHE_DURATION) {
-        const fileContent = fs.readFileSync(cachePath, 'utf8');
-        data = JSON.parse(fileContent);
-      } else {
-        needRefresh = true;
-      }
-    } else {
-      needRefresh = true;
+      const fileContent = fs.readFileSync(cachePath, 'utf8');
+      cachedData = JSON.parse(fileContent);
+      cacheTime = stats.mtimeMs;
     }
   } catch (e) {
-    console.error("Cache file read error, falling back to memory:", e);
-    // Use memory cache fallback
-    if (memoryCache && (now - memoryLastFetched < CACHE_DURATION)) {
-      data = memoryCache;
-    } else {
-      needRefresh = true;
-    }
+    console.warn("[SWR Cache] Cache file read failed, trying memory cache:", e);
+    cachedData = memoryCache;
+    cacheTime = memoryLastFetched;
   }
 
-  // If cache is empty or expired, refresh it
-  if (needRefresh || !data) {
+  const age = now - cacheTime;
+
+  // 1. Fresh Hit (less than 5 mins old)
+  if (cachedData && age < CACHE_REVALIDATE_TTL) {
+    console.log(`[SWR Cache] Fresh hit! serving cache (${Math.round(age / 1000)}s old).`);
+    return NextResponse.json(cachedData);
+  }
+
+  // 2. Stale hit (5 to 30 mins old) - serve immediately and trigger background refresh
+  if (cachedData && age < CACHE_EXPIRATION_TTL) {
+    console.log(`[SWR Cache] Stale hit! serving cache (${Math.round(age / 60000)}m old) & triggering revalidation.`);
+    triggerBackgroundRebuild().catch(e => console.error("[SWR Cache] Background rebuild trigger failed:", e));
+    return NextResponse.json(cachedData);
+  }
+
+  // 3. Cache expired or missing - blocking refresh
+  console.log("[SWR Cache] Cache expired or missing. Running blocking intelligence refresh...");
+  try {
+    const freshData = await generateCuratedIntelligence();
+    
     try {
-      data = await generateCuratedIntelligence();
-      
-      // Save to file cache
-      try {
-        fs.writeFileSync(cachePath, JSON.stringify(data), 'utf8');
-      } catch (writeErr) {
-        console.error("Cache file write error:", writeErr);
-        // Fallback to memory cache
-        memoryCache = data;
-        memoryLastFetched = now;
-      }
-    } catch (err) {
-      console.error("Aggregating threat feed failed:", err);
-      // Serve stale cache if available, else baseline mock
-      if (fs.existsSync(cachePath)) {
-        try {
-          data = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-        } catch (_) {
-          data = getBaselineMockPayload();
-        }
-      } else {
-        data = memoryCache || getBaselineMockPayload();
-      }
+      fs.writeFileSync(cachePath, JSON.stringify(freshData), 'utf8');
+    } catch (writeErr) {
+      console.error("[SWR Cache] Failed writing cache to file:", writeErr);
+      memoryCache = freshData;
+      memoryLastFetched = now;
     }
-  }
 
-  return NextResponse.json(data, {
-    headers: {
-      'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=60'
+    return NextResponse.json(freshData);
+  } catch (err) {
+    console.error("[SWR Cache] Blocking refresh failed, serving stale cache or mock:", err);
+    if (cachedData) {
+      return NextResponse.json(cachedData);
     }
-  });
+    return NextResponse.json(getBaselineMockPayload());
+  }
 }
