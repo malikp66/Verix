@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import { Inter, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+import { FirebaseProvider } from '@/components/FirebaseProvider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -26,7 +27,9 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="id" className={`dark ${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
       <body className="bg-neutral-950 text-neutral-50 font-sans antialiased min-h-screen selection:bg-emerald-500/30 selection:text-emerald-200" suppressHydrationWarning>
-        {children}
+        <FirebaseProvider>
+          {children}
+        </FirebaseProvider>
       </body>
     </html>
   );

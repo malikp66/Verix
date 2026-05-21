@@ -2,12 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, ChevronDown } from 'lucide-react';
+import { Shield, ChevronDown, Menu, X, Sparkles } from 'lucide-react';
 import { useIntel } from './IntelligenceProvider';
+import { useAuth } from './FirebaseProvider';
+import { useAICredits } from '@/hooks/use-ai-credits';
 
 export function Header({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (id: string) => void }) {
   const [scrolled, setScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const intel = useIntel();
+  const { user, login } = useAuth();
+  const { credits, isCreditLoading } = useAICredits();
+
+  const menuItems = [
+    { id: 'dashboard', label: 'Intel' },
+    { id: 'radar', label: 'Radar' },
+    { id: 'scanner', label: 'Scan' },
+    { id: 'data', label: 'Shield' },
+    { id: 'community', label: 'Threat Feed' },
+  ];
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -20,119 +33,237 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
     "⚠ SYNC: Menghubungkan ke node intelijen lokal"
   ];
 
-  const menuItems = [
-    { id: 'dashboard', label: 'Intel' },
-    { id: 'radar', label: 'Radar' },
-    { id: 'scanner', label: 'Scan' },
-    { id: 'data', label: 'Shield' },
-    { id: 'community', label: 'Threat Feed' },
-  ];
-
   return (
-    <header className={`sticky top-0 z-50 w-full flex flex-col transition-all duration-300 ${scrolled ? 'bg-[#0a0e13]/80 backdrop-blur-xl border-b border-neutral-800 shadow-[0_4px_30px_rgba(0,0,0,0.5)]' : 'bg-transparent'}`}>
-      {/* Layer 1: Live Threat Ticker */}
-      <div className={`w-full overflow-hidden flex items-center border-b border-neutral-800/50 bg-[#0A0E13]/60 transition-all duration-300 ${scrolled ? 'h-8 opacity-80' : 'h-10 opacity-100'}`}>
-        <div className="flex items-center gap-2 shrink-0 px-4 md:px-6 z-20 border-r border-neutral-800/80 h-full bg-[#05070A]/50 glass">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(182,255,59,0.8)]" />
-          <span className="text-[9px] md:text-[10px] font-mono text-emerald-400 font-bold tracking-widest hidden sm:inline-block">LIVE THREAT FEED</span>
-          <span className="text-[9px] md:text-[10px] font-mono text-emerald-400 font-bold tracking-widest sm:hidden">LIVE</span>
-        </div>
-        
-        <div className="flex-1 overflow-hidden relative flex opacity-90">
-          <motion.div 
-            animate={{ x: [0, -2000] }} 
-            transition={{ repeat: Infinity, duration: 40, ease: "linear" }}
-            className="flex items-center gap-12 whitespace-nowrap pl-6"
-          >
-            {alerts.map((alert: string, i: number) => (
-              <span key={`alert-1-${i}`} className="text-xs font-mono text-neutral-300 tracking-wide">{alert}</span>
-            ))}
-            {/* Duplicate for seamless loop */}
-            {alerts.map((alert: string, i: number) => (
-              <span key={`alert-2-${i}`} className="text-xs font-mono text-neutral-300 tracking-wide">{alert}</span>
-            ))}
-             {alerts.map((alert: string, i: number) => (
-              <span key={`alert-3-${i}`} className="text-xs font-mono text-neutral-300 tracking-wide">{alert}</span>
-            ))}
-          </motion.div>
-          {/* Gradient masks for smooth fade */}
-          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#0A0E13] to-transparent pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0A0E13] to-transparent pointer-events-none" />
-        </div>
-
-        <div className="items-center gap-2 shrink-0 px-4 md:px-6 z-20 border-l border-neutral-800/80 h-full bg-[#05070A]/50 hidden sm:flex">
-          <span className="text-[9px] font-mono text-neutral-500 tracking-widest">THREAT NETWORK ONLINE</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-[pulse_2s_ease-in-out_infinite]" />
-        </div>
-      </div>
-
-      {/* Layer 2: Main Header Navbar */}
-      <div className={`w-full px-4 md:px-6 lg:px-8 flex items-center justify-between transition-all duration-300 ${scrolled ? 'h-14' : 'h-16'}`}>
-        
-        {/* Left: Branding */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center relative overflow-hidden group hover:border-emerald-400 transition-colors cursor-pointer">
-            <div className="absolute inset-0 bg-emerald-500/5 group-hover:bg-emerald-500/20 transition-colors" />
-            <Shield className="w-4 h-4 text-emerald-400 relative z-10" />
+    <>
+      <header className={`sticky top-0 z-50 w-full flex flex-col transition-all duration-300 ${scrolled ? 'bg-[#0a0e13]/80 backdrop-blur-xl border-b border-neutral-800 shadow-[0_4px_30px_rgba(0,0,0,0.5)]' : 'bg-transparent'}`}>
+        {/* Layer 1: Live Threat Ticker */}
+        <div className={`w-full overflow-hidden flex items-center border-b border-neutral-800/50 bg-[#0A0E13]/60 transition-all duration-300 ${scrolled ? 'h-8 opacity-80' : 'h-10 opacity-100'}`}>
+          <div className="flex items-center gap-2 shrink-0 px-4 md:px-6 z-20 border-r border-neutral-800/80 h-full bg-[#05070A]/50 glass">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(182,255,59,0.8)]" />
+            <span className="text-[9px] md:text-[10px] font-mono text-emerald-400 font-bold tracking-widest hidden sm:inline-block">LIVE THREAT FEED</span>
+            <span className="text-[9px] md:text-[10px] font-mono text-emerald-400 font-bold tracking-widest sm:hidden">LIVE</span>
           </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="font-display font-medium text-lg tracking-tight text-white leading-none">VERIX</span>
-              <span className="w-1 h-1 rounded-full bg-emerald-400" />
+          
+          <div className="flex-1 overflow-hidden relative flex opacity-90">
+            <motion.div 
+              animate={{ x: [0, -2000] }} 
+              transition={{ repeat: Infinity, duration: 40, ease: "linear" }}
+              className="flex items-center gap-12 whitespace-nowrap pl-6"
+            >
+              {alerts.map((alert: string, i: number) => (
+                <span key={`alert-1-${i}`} className="text-xs font-mono text-neutral-300 tracking-wide">{alert}</span>
+              ))}
+              {/* Duplicate for seamless loop */}
+              {alerts.map((alert: string, i: number) => (
+                <span key={`alert-2-${i}`} className="text-xs font-mono text-neutral-300 tracking-wide">{alert}</span>
+              ))}
+               {alerts.map((alert: string, i: number) => (
+                <span key={`alert-3-${i}`} className="text-xs font-mono text-neutral-300 tracking-wide">{alert}</span>
+              ))}
+            </motion.div>
+            {/* Gradient masks for smooth fade */}
+            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#0A0E13] to-transparent pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0A0E13] to-transparent pointer-events-none" />
+          </div>
+
+          <div className="items-center gap-2 shrink-0 px-4 md:px-6 z-20 border-l border-neutral-800/80 h-full bg-[#05070A]/50 hidden sm:flex">
+            <span className="text-[9px] font-mono text-neutral-500 tracking-widest">THREAT NETWORK ONLINE</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-[pulse_2s_ease-in-out_infinite]" />
+          </div>
+        </div>
+
+        {/* Layer 2: Main Header Navbar */}
+        <div className={`w-full px-4 md:px-6 lg:px-8 flex items-center justify-between transition-all duration-300 ${scrolled ? 'h-14' : 'h-16'}`}>
+          
+          {/* Left: Branding */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center relative overflow-hidden group hover:border-emerald-400 transition-colors cursor-pointer">
+              <div className="absolute inset-0 bg-emerald-500/5 group-hover:bg-emerald-500/20 transition-colors" />
+              <Shield className="w-4 h-4 text-emerald-400 relative z-10" />
             </div>
-            <span className="text-[9px] font-mono text-neutral-500 tracking-widest leading-none mt-1 hidden md:block">VERIFIKASI RISIKO DIGITAL</span>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                <span className="font-display font-medium text-lg tracking-tight text-white leading-none">VERIX</span>
+                <span className="w-1 h-1 rounded-full bg-emerald-400" />
+              </div>
+              <span className="text-[9px] font-mono text-neutral-500 tracking-widest leading-none mt-1 hidden md:block">VERIFIKASI RISIKO DIGITAL</span>
+            </div>
           </div>
-        </div>
 
-        {/* Center: Navigation */}
-        <nav className="hidden lg:flex items-center gap-1 absolute left-1/2 -translate-x-1/2 bg-neutral-900/30 border border-neutral-800/50 backdrop-blur-md rounded-full px-2 py-1.5">
-          {menuItems.map(item => {
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`relative px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300 ${
-                  isActive ? 'text-white' : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
-                }`}
+          {/* Center: Navigation */}
+          <nav className="hidden lg:flex items-center gap-1 absolute left-1/2 -translate-x-1/2 bg-neutral-900/30 border border-neutral-800/50 backdrop-blur-md rounded-full px-2 py-1.5">
+            {menuItems.map(item => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`relative px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300 ${
+                    isActive ? 'text-white' : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
+                  }`}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="headerActiveTab"
+                      className="absolute inset-0 bg-neutral-800 rounded-full border border-neutral-700/50 shadow-[0_2px_10px_rgba(0,0,0,0.2)]"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-10 font-mono tracking-wide">{item.label}</span>
+                  {isActive && (
+                     <motion.div 
+                       layoutId="headerActiveTabGlow"
+                       className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)] z-10" 
+                     />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Right: CTA Area */}
+          <div className="flex items-center gap-4 shrink-0">
+            <div className="hidden lg:flex items-center gap-3 border-r border-neutral-800 pr-4 mr-1">
+              {/* Credits indicator */}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                 <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                 <span className="text-[11px] font-mono text-emerald-300 font-medium tracking-wide">
+                   {isCreditLoading ? '... ' : credits}{' '}
+                   <span className="text-emerald-500/70 hidden xl:inline">AI Credits</span>
+                 </span>
+              </div>
+              
+              <div className="w-6 h-6 rounded-md bg-neutral-800 flex items-center justify-center text-[9px] font-mono text-neutral-400 border border-neutral-700 overflow-hidden">
+                {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" /> : 'ID'}
+              </div>
+              <span className="text-sm font-medium text-neutral-400 truncate max-w-[120px]">
+                {user ? user.displayName || user.email?.split('@')[0] : 'Guest User'}
+              </span>
+            </div>
+            {user ? (
+              <button 
+                onClick={() => setActiveTab('scanner')} 
+                className="group relative px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-sm font-medium text-emerald-400 transition-all duration-300 hidden lg:flex items-center gap-2 overflow-hidden"
               >
-                {isActive && (
-                  <motion.div
-                    layoutId="headerActiveTab"
-                    className="absolute inset-0 bg-neutral-800 rounded-full border border-neutral-700/50 shadow-[0_2px_10px_rgba(0,0,0,0.2)]"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  />
-                )}
-                <span className="relative z-10 font-mono tracking-wide">{item.label}</span>
-                {isActive && (
-                   <motion.div 
-                     layoutId="headerActiveTabGlow"
-                     className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)] z-10" 
-                   />
-                )}
+                <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                <span className="relative z-10">Mulai Analisis</span>
               </button>
-            );
-          })}
-        </nav>
+            ) : (
+              <button 
+                onClick={() => login()} 
+                className="group relative px-4 py-2 bg-white hover:bg-neutral-200 border border-transparent rounded-lg text-sm font-medium text-neutral-950 transition-all duration-300 hidden lg:flex items-center gap-2 overflow-hidden"
+              >
+                <span className="relative z-10">Login</span>
+              </button>
+            )}
 
-        {/* Right: CTA Area */}
-        <div className="flex items-center gap-4 shrink-0">
-          <div className="hidden sm:flex items-center gap-2 border-r border-neutral-800 pr-4 mr-1">
-            <div className="w-6 h-6 rounded-md bg-neutral-800 flex items-center justify-center text-[9px] font-mono text-neutral-400 border border-neutral-700">ID</div>
-            <span className="text-sm font-medium text-neutral-400">Guest User #8492</span>
+            {/* Mobile Hamburger */}
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="w-10 h-10 rounded-lg bg-[#05070A]/50 border border-neutral-800 flex items-center justify-center text-neutral-400 hover:text-white lg:hidden"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
           </div>
-          <button 
-            onClick={() => setActiveTab('scanner')} 
-            className="group relative px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-sm font-medium text-emerald-400 transition-all duration-300 flex items-center gap-2 overflow-hidden"
-          >
-            <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-            <span className="relative z-10">Mulai Analisis</span>
-          </button>
         </div>
+      </header>
 
-      </div>
-    </header>
+      {/* Layer 3: Mobile Sidebar Navigation */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 z-[60] bg-[#0A0E13]/80 backdrop-blur-sm lg:hidden"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed top-0 right-0 bottom-0 w-[280px] z-[70] bg-[#0A0E13] border-l border-neutral-800 shadow-2xl flex flex-col lg:hidden"
+            >
+              <div className="p-5 border-b border-neutral-800/50 flex items-center justify-between bg-[#05070A]/30">
+                 <div className="flex items-center gap-2">
+                   <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center relative overflow-hidden group">
+                     <Shield className="w-4 h-4 text-emerald-400 relative z-10" />
+                   </div>
+                   <span className="font-display font-medium text-white tracking-tight">MENU</span>
+                 </div>
+                 <button
+                   onClick={() => setIsMobileMenuOpen(false)}
+                   className="w-8 h-8 flex items-center justify-center rounded-md bg-[#05070A]/50 border border-neutral-800 text-neutral-400 hover:text-white transition-colors"
+                 >
+                   <X className="w-4 h-4" />
+                 </button>
+              </div>
+              
+              <div className="p-4 flex-1 overflow-y-auto flex flex-col gap-1.5 mt-2">
+                {menuItems.map(item => {
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
+                      className={`relative px-4 py-3.5 rounded-xl text-left text-sm font-medium transition-all duration-300 flex items-center gap-3 group ${
+                        isActive ? 'bg-emerald-500/10 border-emerald-500/30 border text-white' : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50 border border-transparent'
+                      }`}
+                    >
+                      <span className="font-mono tracking-wide relative z-10">{item.label}</span>
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-emerald-400 rounded-r-md shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <div className="p-5 border-t border-neutral-800/50 bg-[#05070A]/30 mb-safe flex flex-col gap-4">
+                 <div className="flex items-center gap-3">
+                   <div className="w-8 h-8 rounded-md bg-neutral-800 flex items-center justify-center text-[10px] font-mono text-neutral-400 border border-neutral-700 overflow-hidden">
+                     {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" /> : 'ID'}
+                   </div>
+                   <div className="flex flex-col flex-1">
+                     <span className="text-sm font-medium text-neutral-300">
+                       {user ? user.displayName || user.email?.split('@')[0] : 'Guest User'}
+                     </span>
+                     <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                       <Sparkles className="w-3 h-3" /> {isCreditLoading ? '... ' : credits} AI Credits
+                     </span>
+                   </div>
+                 </div>
+                 {user ? (
+                   <button 
+                    onClick={() => {
+                      setActiveTab('scanner');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full relative px-4 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-sm font-medium text-emerald-400 transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                  >
+                    <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent -translate-x-full hover:animate-[shimmer_1.5s_infinite]" />
+                    <span className="relative z-10 font-bold tracking-wide">Mulai Analisis</span>
+                  </button>
+                 ) : (
+                   <button 
+                    onClick={() => {
+                      login();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full relative px-4 py-3 bg-white hover:bg-neutral-200 border border-transparent rounded-xl text-sm font-medium text-neutral-950 transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden"
+                  >
+                    <span className="relative z-10 font-bold tracking-wide">Login</span>
+                  </button>
+                 )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

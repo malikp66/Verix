@@ -8,6 +8,7 @@
         "displayName": { "type": "string" },
         "email": { "type": "string" },
         "photoURL": { "type": "string" },
+        "aiCredits": { "type": "number" },
         "createdAt": { "type": "string", "format": "timestamp" },
         "updatedAt": { "type": "string", "format": "timestamp" }
       },

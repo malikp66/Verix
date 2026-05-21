@@ -6,10 +6,13 @@ import { LightRays } from './ui/light-rays';
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
+import { useAuth } from './FirebaseProvider';
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
+  const { user, login } = useAuth();
+  
   return (
     <section className="relative pt-32 pb-32 flex flex-col items-center justify-center text-center px-4 overflow-hidden min-h-[95vh]">
       {/* Background Cinematic Effects */}
@@ -65,11 +68,19 @@ function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
         transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
         className="flex flex-col sm:flex-row gap-5 w-full sm:w-auto px-4 relative z-20"
       >
-        <button onClick={() => setActiveTab('scanner')} className="group relative w-full sm:w-auto bg-white text-neutral-950 px-10 py-4 rounded-xl font-medium hover:bg-neutral-200 transition-colors flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(255,255,255,0.15)] overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-600/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-          <span className="relative z-10 font-semibold tracking-wide text-sm md:text-base">Mulai Analisis</span>
-          <ArrowRight className="w-5 h-5 text-emerald-600 relative z-10 group-hover:translate-x-1 transition-transform" />
-        </button>
+        {user ? (
+          <button onClick={() => setActiveTab('scanner')} className="group relative w-full sm:w-auto bg-white text-neutral-950 px-10 py-4 rounded-xl font-medium hover:bg-neutral-200 transition-colors flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(255,255,255,0.15)] overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-600/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+            <span className="relative z-10 font-semibold tracking-wide text-sm md:text-base">Mulai Analisis</span>
+            <ArrowRight className="w-5 h-5 text-emerald-600 relative z-10 group-hover:translate-x-1 transition-transform" />
+          </button>
+        ) : (
+          <button onClick={() => login()} className="group relative w-full sm:w-auto bg-white text-neutral-950 px-10 py-4 rounded-xl font-medium hover:bg-neutral-200 transition-colors flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(255,255,255,0.15)] overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-600/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+            <span className="relative z-10 font-semibold tracking-wide text-sm md:text-base">Login</span>
+            <ArrowRight className="w-5 h-5 text-emerald-600 relative z-10 group-hover:translate-x-1 transition-transform" />
+          </button>
+        )}
         <button onClick={() => setActiveTab('radar')} className="w-full sm:w-auto bg-[#121821]/80 backdrop-blur-md text-white px-10 py-4 rounded-xl font-medium hover:bg-[#161D27] transition-all duration-300 border border-neutral-800 hover:border-neutral-700 flex items-center justify-center gap-3 group shadow-xl">
           <Radar className="w-5 h-5 text-neutral-400 group-hover:text-emerald-400 transition-colors" />
           <span className="tracking-wide text-sm md:text-base">Lihat Threat Radar</span>
