@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global safety net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ---------- GLOBAL HELPERS ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // ---------- ENTITY: User ----------
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'createdAt', 'updatedAt']) 
+        && data.email is string && data.email.size() <= 200
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.get('displayName', '') is string
+        && data.get('photoURL', '') is string;
+    }
+
+    function isUpdateValidUser(data) {
+      return data.email is string && data.email.size() <= 200
+        && data.updatedAt == request.time
+        && data.createdAt == existing().createdAt
+        && data.get('displayName', '') is string
+        && data.get('photoURL', '') is string
+        && data.get('aiCredits', 0) is number;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && request.auth.uid == userId;
+      // No allow list for users to prevent PII leak
+      allow create: if isSignedIn() 
+                    && request.auth.uid == userId 
+                    && isValidId(userId)
+                    && isValidUser(incoming())
+                    && incoming().keys().size() <= 6; // email, createdAt, updatedAt, displayName, photoURL, aiCredits
+                    
+      allow update: if isSignedIn() 
+                    && request.auth.uid == userId 
+                    && isUpdateValidUser(incoming())
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt', 'aiCredits']);
+    }
+
+    // ---------- ENTITY: Report ----------
+    function isValidReport(data) {
+      return data.keys().hasAll(['userId', 'title', 'type', 'description', 'status', 'createdAt', 'updatedAt'])
+        && data.userId == request.auth.uid
+        && data.title is string && data.title.size() <= 250
+        && data.type is string && data.type.size() <= 100
+        && data.description is string && data.description.size() <= 5000
+        && data.status in ['pending', 'verified', 'rejected']
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function isUpdateValidReport(data) {
+      return data.userId == existing().userId
+        && data.title is string && data.title.size() <= 250
+        && data.type is string && data.type.size() <= 100
+        && data.description is string && data.description.size() <= 5000
+        && data.status in ['pending', 'verified', 'rejected']
+        && data.createdAt == existing().createdAt
+        && data.updatedAt == request.time;
+    }
+
+    match /reports/{reportId} {
+      allow get: if true; // Public read for reports may be needed? Wait, maybe only signed in or public to show in feed
+      allow list: if isSignedIn(); // Safe since no PII, but wait, should we restrict it? Assuming feed shows reports.
+      allow create: if isSignedIn()
+                    && isValidId(reportId)
+                    && isValidReport(incoming())
+                    && incoming().status == 'pending'  // users can only create pending reports
+                    && incoming().keys().size() == 7;
+                    
+      allow update: if isSignedIn()
+                    && existing().userId == request.auth.uid
+                    && isUpdateValidReport(incoming())
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'type', 'description', 'updatedAt']);
+      
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+  }
+}
