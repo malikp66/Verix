@@ -96,5 +96,10 @@ service cloud.firestore {
       
       allow delete: if isSignedIn() && existing().userId == request.auth.uid;
     }
+
+    // ---------- ENTITY: Scan Cache ----------
+    match /scans/{scanId} {
+      allow read, write: if true;
+    }
   }
 }

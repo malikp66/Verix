@@ -7,6 +7,8 @@ import { Dashboard } from '@/components/Dashboard';
 import { ScannerView } from '@/components/ScannerView';
 import { IntelligenceProvider } from '@/components/IntelligenceProvider';
 import { SplashScreen } from '@/components/SplashScreen';
+import { ThreatPulseView } from '@/components/ThreatPulseView';
+import { SettingsView } from '@/components/SettingsView';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -18,11 +20,14 @@ export default function Home() {
         return <Dashboard setActiveTab={setActiveTab} />;
       case 'scanner':
         return <ScannerView />;
+      case 'threatpulse':
+        return <ThreatPulseView />;
+      case 'settings':
+        return <SettingsView />;
       default:
         return (
-          <div className="flex-1 flex items-center justify-center h-screen flex-col text-neutral-500">
-            <h2 className="text-2xl font-medium text-white mb-2">Segera Hadir</h2>
-            <p>Fitur intelligence ini masih dalam tahap pegembangan.</p>
+          <div className="flex-1 flex items-center justify-center h-screen flex-col text-neutral-500 bg-[#0A0E13]">
+            <h2 className="text-2xl font-medium text-white mb-2 font-display">Unknown View</h2>
           </div>
         );
     }
@@ -50,4 +55,3 @@ export default function Home() {
     </IntelligenceProvider>
   );
 }
-

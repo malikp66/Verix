@@ -15,11 +15,10 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
   const { credits, isCreditLoading } = useAICredits();
 
   const menuItems = [
-    { id: 'dashboard', label: 'Intel' },
-    { id: 'radar', label: 'Radar' },
-    { id: 'scanner', label: 'Scan' },
-    { id: 'data', label: 'Shield' },
-    { id: 'community', label: 'Threat Feed' },
+    { id: 'dashboard', label: 'Dashboard', sub: 'System Overview' },
+    { id: 'threatpulse', label: 'VERIX Pulse', sub: 'Live threat intelligence' },
+    { id: 'scanner', label: 'Scanner', sub: 'AI Threat Analysis' },
+    { id: 'settings', label: 'Settings', sub: 'Preferences & Data' },
   ];
 
   useEffect(() => {
@@ -118,6 +117,12 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
                        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)] z-10" 
                      />
                   )}
+                  {/* Tooltip on Hover */}
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-max opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                    <div className="bg-[#111111] border border-neutral-800 text-neutral-400 text-[11px] px-3 py-1.5 rounded-md shadow-xl font-mono">
+                      {item.sub}
+                    </div>
+                  </div>
                 </button>
               );
             })}
@@ -210,11 +215,12 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
                     <button
                       key={item.id}
                       onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
-                      className={`relative px-4 py-3.5 rounded-xl text-left text-sm font-medium transition-all duration-300 flex items-center gap-3 group ${
-                        isActive ? 'bg-emerald-500/10 border-emerald-500/30 border text-white' : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50 border border-transparent'
+                      className={`relative px-4 py-3.5 rounded-xl text-left transition-all duration-300 flex flex-col gap-0.5 group ${
+                        isActive ? 'bg-emerald-500/10 border-emerald-500/30 border' : 'hover:bg-neutral-800/50 border border-transparent'
                       }`}
                     >
-                      <span className="font-mono tracking-wide relative z-10">{item.label}</span>
+                      <span className={`font-mono tracking-wide relative z-10 text-sm font-medium ${isActive ? 'text-white' : 'text-neutral-300'}`}>{item.label}</span>
+                      <span className="text-[10px] text-neutral-500 font-mono">{item.sub}</span>
                       {isActive && (
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-emerald-400 rounded-r-md shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
                       )}

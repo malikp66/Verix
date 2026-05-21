@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { ArrowRight, ShieldAlert, Zap, Lock, Smartphone, FileWarning, Eye, UploadCloud, Search, AlertCircle, BarChart3, Users, MessageSquare, Link2, Radar, MessageCircle, Image as ImageIcon, ShoppingBag, Mic } from 'lucide-react';
+import { ArrowRight, ShieldAlert, Zap, Lock, Smartphone, FileWarning, Eye, UploadCloud, Search, AlertCircle, BarChart3, Users, MessageSquare, Link2, Radar, MessageCircle, Image as ImageIcon, ShoppingBag, Mic, CreditCard, Shield } from 'lucide-react';
 import { LightRays } from './ui/light-rays';
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
@@ -797,6 +797,55 @@ function IntelligenceEcosystem() {
   );
 }
 
+function EducationSection() {
+  const articles = [
+    { title: 'Phishing Bank BCA & Mandiri', short: 'Penipuan menggunakan tautan palsu yang menyerupai situs resmi bank.', icon: CreditCard, color: 'text-cyan-400', col: 'col-span-1 md:col-span-2' },
+    { title: 'APK Malware (Kurir & Undangan)', short: 'Pencurian data dan OTP melalui aplikasi Android berbahaya.', icon: Smartphone, color: 'text-rose-400', col: 'col-span-1' },
+    { title: 'QRIS Scam (Palsu)', short: 'Penipuan melalui stiker QRIS palsu di kotak amal atau kasir.', icon: Shield, color: 'text-emerald-400', col: 'col-span-1' },
+    { title: 'OTP Fraud & Takeover', short: 'Pengambilalihan akun WhatsApp atau E-Commerce melalui manipulasi kode OTP.', icon: Lock, color: 'text-yellow-400', col: 'col-span-1 md:col-span-2' }
+  ];
+
+  return (
+    <section className="py-32 max-w-7xl mx-auto px-6">
+      <div className="text-center mb-16">
+        <div className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1 mb-6">
+          <span className="text-[10px] font-mono text-cyan-400 tracking-wider">THREAT INTELLIGENCE EDUCATION</span>
+        </div>
+        <h2 className="text-4xl md:text-5xl font-display font-medium tracking-tight mb-6">Stay Ahead of Scams.</h2>
+        <p className="text-neutral-400 text-lg max-w-2xl mx-auto">Kenali pola penipuan modern sebelum terjadi. Jangan biarkan Anda atau keluarga menjadi korban selanjutnya.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[280px]">
+        {articles.map((article, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: i * 0.1 }}
+            className={`group rounded-3xl border border-neutral-800/80 bg-[#0c0c0c] hover:bg-[#111111] transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden relative shadow-2xl hover:shadow-[0_0_40px_rgba(255,255,255,0.05)] cursor-default ${article.col}`}
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+            
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 bg-neutral-900 border border-neutral-800 shadow-inner mb-6">
+              <article.icon className={`w-6 h-6 ${article.color}`} />
+            </div>
+            
+            <div className="z-10">
+              <h3 className="text-2xl font-display font-medium text-white tracking-tight mb-3">{article.title}</h3>
+              <p className="text-neutral-400 leading-relaxed">
+                {article.short}
+              </p>
+            </div>
+
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent to-black/40 pointer-events-none" />
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function Dashboard({ setActiveTab }: { setActiveTab: (id: string) => void }) {
   return (
     <div className="w-full flex-1">
@@ -807,6 +856,7 @@ export function Dashboard({ setActiveTab }: { setActiveTab: (id: string) => void
       <ExplainableAI />
       <ScamStatistics setActiveTab={setActiveTab} />
       <IntelligenceEcosystem />
+      <EducationSection />
       <div className="py-24 text-center max-w-4xl mx-auto px-6">
         <div className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1 mb-6">
                  <span className="text-[10px] font-mono text-emerald-400 tracking-wider">VERIFIKASI RISIKO DIGITAL</span>
