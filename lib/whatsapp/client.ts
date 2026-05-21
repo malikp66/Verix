@@ -80,7 +80,7 @@ export async function startWhatsAppClient(): Promise<WASocket> {
         try {
           await handleIncomingMessage(sock, msg);
         } catch (err) {
-          logger.error('[WA Client] Error handling message:', err);
+          logger.error(err, '[WA Client] Error handling message');
         }
       }
     }

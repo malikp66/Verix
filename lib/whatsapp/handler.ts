@@ -20,8 +20,8 @@ type Intent = 'SCAN_URL' | 'ASK_HELP' | 'REPORT_SCAM' | 'UNKNOWN';
  * Handles incoming WhatsApp messages from Baileys client socket.
  */
 export async function handleIncomingMessage(sock: WASocket, msg: proto.IWebMessageInfo) {
+  if (!msg.key || !msg.key.remoteJid) return;
   const jid = msg.key.remoteJid;
-  if (!jid) return;
 
   // Filter: Ignore group messages to keep direct messages focused
   if (jid.endsWith('@g.us')) {
@@ -59,7 +59,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: proto.IWebMessa
     await humanDelay();
     await sock.sendPresenceUpdate('paused', jid);
     
-    await sock.sendMessage(jid, { text: formatRateLimitMessage(remaining) }, { quoted: msg });
+    await sock.sendMessage(jid, { text: formatRateLimitMessage(remaining) }, { quoted: msg as any });
     return;
   }
 
@@ -88,7 +88,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: proto.IWebMessa
     if (intent === 'ASK_HELP') {
       await humanDelay();
       await sock.sendPresenceUpdate('paused', jid);
-      await sock.sendMessage(jid, { text: formatHelpMessage() }, { quoted: msg });
+      await sock.sendMessage(jid, { text: formatHelpMessage() }, { quoted: msg as any });
       return;
     }
 
@@ -99,7 +99,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: proto.IWebMessa
       // Clear memory context on manual reports
       clearContext(jid);
       
-      await sock.sendMessage(jid, { text: formatReportScamMessage() }, { quoted: msg });
+      await sock.sendMessage(jid, { text: formatReportScamMessage() }, { quoted: msg as any });
       return;
     }
 
@@ -141,7 +141,7 @@ export async function handleIncomingMessage(sock: WASocket, msg: proto.IWebMessa
       // Organic human delay before responding
       await humanDelay();
       await sock.sendPresenceUpdate('paused', jid);
-      await sock.sendMessage(jid, { text: replyText }, { quoted: msg });
+      await sock.sendMessage(jid, { text: replyText }, { quoted: msg as any });
       return;
     }
 
@@ -151,14 +151,14 @@ export async function handleIncomingMessage(sock: WASocket, msg: proto.IWebMessa
     await sock.sendMessage(
       jid,
       { text: `Maaf, saya tidak mengenali perintah tersebut.\n\n${formatHelpMessage()}` },
-      { quoted: msg }
+      { quoted: msg as any }
     );
 
   } catch (error) {
-    logger.error(`[WA Handler] Failure handling message from ${jid}:`, error);
+    logger.error(error, `[WA Handler] Failure handling message from ${jid}`);
     await humanDelay();
     await sock.sendPresenceUpdate('paused', jid);
-    await sock.sendMessage(jid, { text: formatErrorMessage() }, { quoted: msg });
+    await sock.sendMessage(jid, { text: formatErrorMessage() }, { quoted: msg as any });
   }
 }
 

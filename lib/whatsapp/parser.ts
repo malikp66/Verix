@@ -67,13 +67,12 @@ export async function getMessageImage(
     
     // Download decrypted media buffer
     const buffer = await downloadMediaMessage(
-      msg,
+      msg as any,
       'buffer',
       {},
       {
         logger,
-        reuploadRequest: async () => ({})
-      }
+      } as any
     );
 
     if (Buffer.isBuffer(buffer)) {
@@ -83,7 +82,7 @@ export async function getMessageImage(
       };
     }
   } catch (error) {
-    logger.error('Failed to download image from WhatsApp message:', error);
+    logger.error(error, 'Failed to download image from WhatsApp message');
   }
 
   return null;

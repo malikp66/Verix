@@ -7,7 +7,7 @@ import { logger } from '../lib/whatsapp/logger';
     logger.info('[Runner] Initializing VERIX WhatsApp Bot daemon...');
     await startWhatsAppClient();
   } catch (error) {
-    logger.error('[Runner] Fatal error starting VERIX WhatsApp Bot daemon:', error);
+    logger.error(error, '[Runner] Fatal error starting VERIX WhatsApp Bot daemon');
     process.exit(1);
   }
 })();
