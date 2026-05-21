@@ -47,13 +47,13 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
 
   return (
     <motion.div 
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0B0F14] overflow-hidden"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-neutral-950 overflow-hidden"
       initial={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 1.05 }}
       transition={{ duration: 0.8, ease: "easeInOut" }}
     >
       {/* Background Cinematic Effects */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_100%_100%_at_50%_0%,_rgba(182,255,59,0.05)_0%,_rgba(11,15,20,1)_80%)] -z-10" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_100%_100%_at_50%_0%,_rgba(182,255,59,0.05)_0%,_rgba(3,3,3,1)_80%)] -z-10" />
       <div className="absolute inset-0 opacity-10 -z-10 bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_20%,transparent_100%)]" />
 
       {/* Floating threat nodes simulated with gradients */}
@@ -99,7 +99,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
              initial={{ scale: 0.8, opacity: 0 }}
              animate={{ scale: 1, opacity: 1 }}
              transition={{ duration: 1, ease: "easeOut" }}
-             className="w-20 h-20 bg-[#121821] border border-[#2A3441] rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(182,255,59,0.15)] relative overflow-hidden"
+             className="w-20 h-20 bg-neutral-900 border border-neutral-800 rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(182,255,59,0.15)] relative overflow-hidden"
            >
               <div className="absolute inset-0 bg-gradient-to-br from-[#B6FF3B]/10 to-transparent opacity-50" />
               <Shield className="w-10 h-10 text-[#B6FF3B] relative z-10 drop-shadow-[0_0_15px_rgba(182,255,59,0.8)]" />
@@ -146,7 +146,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
             <span className="text-[10px] font-mono text-[#4DA8FF]">{Math.min(100, Math.floor(progress))}%</span>
           </div>
           
-          <div className="w-full h-1 bg-[#121821] rounded-full overflow-hidden relative border border-neutral-800/50">
+          <div className="w-full h-1 bg-neutral-900 rounded-full overflow-hidden relative border border-neutral-800/50">
             <motion.div 
                className="absolute top-0 left-0 bottom-0 bg-gradient-to-r from-[#4DA8FF] to-[#B6FF3B] shadow-[0_0_10px_rgba(182,255,59,0.5)]"
                initial={{ width: "0%" }}
@@ -164,7 +164,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
         transition={{ delay: 1, duration: 1 }}
         className="absolute bottom-8 w-full overflow-hidden flex justify-center opacity-60"
       >
-         <div className="flex items-center gap-3 bg-[#121821]/50 backdrop-blur-md px-4 py-1.5 border border-neutral-800/50 rounded-full">
+         <div className="flex items-center gap-3 bg-neutral-900/50 backdrop-blur-md px-4 py-1.5 border border-neutral-800/50 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-[#FFB547] animate-pulse" />
             <motion.span 
               initial={{ opacity: 0 }}

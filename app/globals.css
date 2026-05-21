@@ -1,21 +1,39 @@
 @import "tailwindcss";
 
 @theme {
-  --color-neutral-950: #0B0F14;
-  --color-neutral-900: #121821;
-  --color-neutral-800: #161D27;
-  --color-neutral-700: #263041;
-  --color-neutral-200: #D1D9E5;
+  --color-neutral-950: #030303;
+  --color-neutral-900: #0A0A0C;
+  --color-neutral-800: #121216;
+  --color-neutral-700: #1E1E24;
+  --color-neutral-200: #E2E2E5;
 
-  --color-emerald-200: #D8FF8A;
-  --color-emerald-400: #B6FF3B;
-  --color-emerald-500: #B6FF3B;
+  --color-emerald-200: #A7F3D0;
+  --color-emerald-400: #05F394;
+  --color-emerald-500: #00F59B;
 
-  --color-amber-400: #FFB547;
-  --color-amber-500: #FFB547;
+  --color-amber-400: #FFC875;
+  --color-amber-500: #FF9F1C;
 
-  --color-red-400: #FF5D5D;
-  --color-red-500: #FF5D5D;
+  --color-red-400: #FF6B6B;
+  --color-red-500: #FF3F3F;
+
+  --animate-pulse-slow: pulse-slow 8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-scan-y: scan-y 5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-shimmer-flow: shimmer-flow 6s linear infinite;
+
+  @keyframes pulse-slow {
+    0%, 100% { opacity: 0.35; filter: blur(120px) scale(1); }
+    50% { opacity: 0.65; filter: blur(100px) scale(1.08); }
+  }
+  @keyframes scan-y {
+    0% { transform: translateY(-100%); }
+    50% { transform: translateY(100%); }
+    100% { transform: translateY(-100%); }
+  }
+  @keyframes shimmer-flow {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
 }
 
 @utility no-scrollbar {

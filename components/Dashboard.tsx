@@ -8,6 +8,59 @@ import Image from 'next/image';
 import { useAuth } from './FirebaseProvider';
 import { IndonesiaMap } from './ui/IndonesiaMap';
 
+// Premium UI Primitives
+import { Spotlight } from './ui/Spotlight';
+import { BorderBeam } from './ui/BorderBeam';
+import { Meteors } from './ui/Meteors';
+import { AuroraBackground } from './ui/AuroraBackground';
+import { AnimatedBeam } from './ui/AnimatedBeam';
+import { ShineCard, ShineCardContainer } from './ui/ShineCard';
+
+// Coordinates index for stable ID jitter mapping
+const REGION_COORDS: Record<string, [number, number]> = {
+  "Jakarta": [106.8229, -6.1944],
+  "Jawa Barat": [107.6191, -6.9175],
+  "Jawa Timur": [112.7508, -7.2504],
+  "Jawa Tengah": [110.4208, -6.9932],
+  "Sumatera Utara": [98.6722, 3.5952],
+  "Sulawesi Selatan": [119.4327, -5.1477],
+  "Bali": [115.2167, -8.6500],
+  "Kalimantan Timur": [117.1536, -0.5022]
+};
+
+// Stable coordinate jitter helper so multiple threats in same region don't stack directly
+function getJitteredCoords(regionName: string, id: string): [number, number] {
+  const base = REGION_COORDS[regionName] || [118, -2];
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const jitterX = ((hash % 100) / 100 - 0.5) * 0.45;
+  const jitterY = (((hash >> 8) % 100) / 100 - 0.5) * 0.45;
+  return [base[0] + jitterX, base[1] + jitterY];
+}
+
+// Map keywords to Indonesian map provinces
+function parseRegionFromTitle(title: string, link: string): string {
+  const lower = (title + " " + link).toLowerCase();
+  if (lower.includes("jakarta") || lower.includes("jkt") || lower.includes("jabodetabek") || lower.includes("raya")) return "Jakarta";
+  if (lower.includes("jawa barat") || lower.includes("jabar") || lower.includes("bandung") || lower.includes("depok") || lower.includes("bogor") || lower.includes("bekasi")) return "Jawa Barat";
+  if (lower.includes("jawa timur") || lower.includes("jatim") || lower.includes("surabaya") || lower.includes("malang") || lower.includes("sidoarjo")) return "Jawa Timur";
+  if (lower.includes("jawa tengah") || lower.includes("jateng") || lower.includes("semarang") || lower.includes("solo") || lower.includes("yogyakarta") || lower.includes("jogja")) return "Jawa Tengah";
+  if (lower.includes("sumatera utara") || lower.includes("sumut") || lower.includes("medan") || lower.includes("deliserdang")) return "Sumatera Utara";
+  if (lower.includes("sulawesi selatan") || lower.includes("sulsel") || lower.includes("makassar")) return "Sulawesi Selatan";
+  if (lower.includes("bali") || lower.includes("denpasar") || lower.includes("kuta")) return "Bali";
+  if (lower.includes("kalimantan timur") || lower.includes("kaltim") || lower.includes("samarinda") || lower.includes("balikpapan")) return "Kalimantan Timur";
+  
+  const INDO_REGIONS_LIST = ["Jakarta", "Jawa Barat", "Jawa Timur", "Jawa Tengah", "Sumatera Utara", "Sulawesi Selatan", "Bali", "Kalimantan Timur"];
+  let hash = 0;
+  for (let i = 0; i < title.length; i++) {
+    hash = title.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % INDO_REGIONS_LIST.length;
+  return INDO_REGIONS_LIST[index];
+}
+
 function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
   const { user, login } = useAuth();
   const videoRef = React.useRef<HTMLVideoElement>(null);
@@ -56,70 +109,78 @@ function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
         loop
         playsInline
         preload="auto"
-        className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none opacity-60 transition-opacity duration-1000"
+        className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none opacity-40 transition-opacity duration-1000"
       >
         <source src="/hero-section.mp4" type="video/mp4" />
       </video>
 
-      {/* Content wrapper with relative z-10 to sit on top of the video and overlay */}
-      <div className="relative z-10 w-full max-w-6xl mx-auto flex-1 flex flex-col items-center justify-center text-center px-4 py-16">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="inline-flex items-center space-x-3 bg-[#121821]/80 backdrop-blur-md border border-neutral-800/80 rounded-full px-5 py-2 mb-8 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
-        >
-          <div className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </div>
-          <span className="text-[10px] md:text-xs font-mono text-emerald-400 font-medium tracking-widest uppercase">REALTIME THREAT NETWORK ACTIVE</span>
-        </motion.div>
+      {/* Ambient green center glow */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-emerald-500/[0.03] blur-[150px] rounded-full pointer-events-none animate-pulse-slow z-0" />
 
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
-          className="text-5xl sm:text-6xl md:text-8xl font-display font-medium tracking-tight mb-8 max-w-6xl leading-[1.05]"
-        >
-          Ancaman Digital Kini <br className="hidden md:block" />
-          <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-neutral-500">Terlihat Meyakinkan.</span>
-        </motion.h1>
+      {/* Bottom green linear glow line */}
+      <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-500/35 to-transparent z-20" />
 
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-          className="text-lg md:text-xl text-neutral-400 max-w-3xl mb-14 leading-relaxed font-light"
-        >
-          VERIX membantu mendeteksi phishing, manipulasi digital, QR scam, fake screenshot, APK berbahaya, dan ancaman digital menggunakan AI threat intelligence.
-        </motion.p>
+      {/* Aurora Background Overlay with Content */}
+      <AuroraBackground className="relative z-10 w-full flex-1 flex flex-col items-center justify-center">
+        <div className="relative z-10 w-full max-w-6xl mx-auto flex-1 flex flex-col items-center justify-center text-center px-4 py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="inline-flex items-center space-x-3 bg-neutral-900/80 backdrop-blur-md border border-neutral-800/80 rounded-full px-5 py-2 mb-8 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+          >
+            <div className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </div>
+            <span className="text-[10px] md:text-xs font-mono text-emerald-400 font-medium tracking-widest uppercase">REALTIME THREAT NETWORK ACTIVE</span>
+          </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
-          className="flex flex-col sm:flex-row gap-5 w-full sm:w-auto px-4 relative z-20"
-        >
-          {user ? (
-            <button onClick={() => setActiveTab('scanner')} className="group relative w-full sm:w-auto bg-white text-neutral-950 px-10 py-4 rounded-xl font-medium hover:bg-neutral-200 transition-colors flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(255,255,255,0.15)] overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-600/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-              <span className="relative z-10 font-semibold tracking-wide text-sm md:text-base">Mulai Analisis</span>
-              <ArrowRight className="w-5 h-5 text-emerald-600 relative z-10 group-hover:translate-x-1 transition-transform" />
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
+            className="text-5xl sm:text-6xl md:text-8xl font-display font-medium tracking-tight mb-8 max-w-6xl leading-[1.05]"
+          >
+            Detect Scams <br className="hidden md:block" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-neutral-500">Before They Detect You.</span>
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+            className="text-lg md:text-xl text-neutral-400 max-w-3xl mb-14 leading-relaxed font-light"
+          >
+            VERIX menggabungkan AI dan sistem keamanan nyata untuk melindungi Anda dari phishing, penipuan, dan ancaman digital — secara real-time.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
+            className="flex flex-col sm:flex-row gap-5 w-full sm:w-auto px-4 relative z-20"
+          >
+            {user ? (
+              <button onClick={() => setActiveTab('scanner')} className="group relative w-full sm:w-auto bg-white text-neutral-950 px-10 py-4 rounded-xl font-medium hover:bg-neutral-200 transition-colors flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(255,255,255,0.15)] overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-600/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                <span className="relative z-10 font-semibold tracking-wide text-sm md:text-base">Mulai Analisis</span>
+                <ArrowRight className="w-5 h-5 text-emerald-600 relative z-10 group-hover:translate-x-1 transition-transform" />
+              </button>
+            ) : (
+              <button onClick={() => login()} className="group relative w-full sm:w-auto bg-white text-neutral-950 px-10 py-4 rounded-xl font-medium hover:bg-neutral-200 transition-colors flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(255,255,255,0.15)] overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-600/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                <span className="relative z-10 font-semibold tracking-wide text-sm md:text-base">Login</span>
+                <ArrowRight className="w-5 h-5 text-emerald-600 relative z-10 group-hover:translate-x-1 transition-transform" />
+              </button>
+            )}
+            <button onClick={() => setActiveTab('threatpulse')} className="w-full sm:w-auto bg-neutral-900/80 backdrop-blur-md text-white px-10 py-4 rounded-xl font-medium hover:bg-neutral-800 transition-all duration-300 border border-neutral-800 hover:border-neutral-700 flex items-center justify-center gap-3 group shadow-xl">
+              <Radar className="w-5 h-5 text-neutral-400 group-hover:text-emerald-400 transition-colors" />
+              <span className="tracking-wide text-sm md:text-base">Lihat Threat Radar</span>
             </button>
-          ) : (
-            <button onClick={() => login()} className="group relative w-full sm:w-auto bg-white text-neutral-950 px-10 py-4 rounded-xl font-medium hover:bg-neutral-200 transition-colors flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(255,255,255,0.15)] overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-emerald-600/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-              <span className="relative z-10 font-semibold tracking-wide text-sm md:text-base">Login</span>
-              <ArrowRight className="w-5 h-5 text-emerald-600 relative z-10 group-hover:translate-x-1 transition-transform" />
-            </button>
-          )}
-          <button onClick={() => setActiveTab('threatpulse')} className="w-full sm:w-auto bg-[#121821]/80 backdrop-blur-md text-white px-10 py-4 rounded-xl font-medium hover:bg-[#161D27] transition-all duration-300 border border-neutral-800 hover:border-neutral-700 flex items-center justify-center gap-3 group shadow-xl">
-            <Radar className="w-5 h-5 text-neutral-400 group-hover:text-emerald-400 transition-colors" />
-            <span className="tracking-wide text-sm md:text-base">Lihat Threat Radar</span>
-          </button>
-        </motion.div>
-      </div>
+          </motion.div>
+        </div>
+      </AuroraBackground>
 
       {/* LiveScamRadar at the bottom sharing video bg */}
       <div className="w-full relative z-20">
@@ -259,7 +320,7 @@ function LiveScamRadar() {
                 href={alert.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-shrink-0 flex items-center gap-4 bg-[#121821]/50 backdrop-blur-sm border border-neutral-800/80 hover:border-neutral-700/80 hover:bg-neutral-800/60 rounded-xl px-5 py-3 transition-all duration-300 group shadow-md relative z-20"
+                className="flex-shrink-0 flex items-center gap-4 bg-neutral-900/50 backdrop-blur-sm border border-neutral-800/80 hover:border-neutral-700/80 hover:bg-neutral-800/60 rounded-xl px-5 py-3 transition-all duration-300 group shadow-md relative z-20"
               >
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-neutral-950 border border-neutral-800 group-hover:border-neutral-700 transition-colors">
@@ -310,49 +371,211 @@ function LiveScamRadar() {
 }
 
 function BentoGrid() {
-  const features = [
-    { title: 'WhatsApp Intelligence', col: 'col-span-1 md:col-span-2', row: 'row-span-2', icon: MessageCircle, color: 'text-white', bg: 'bg-neutral-900 border-neutral-800' },
-    { title: 'Phishing URL Analyzer', col: 'col-span-1', row: 'row-span-1', icon: Link2, color: 'text-white', bg: 'bg-neutral-900 border-neutral-800' },
-    { title: 'Rekening Database', col: 'col-span-1', row: 'row-span-1', icon: Search, color: 'text-white', bg: 'bg-neutral-900 border-neutral-800' },
-    { title: 'Image Forensics', col: 'col-span-1', row: 'row-span-1', icon: ImageIcon, color: 'text-white', bg: 'bg-neutral-900 border-neutral-800' },
-    { title: 'Fake Marketplace', col: 'col-span-1', row: 'row-span-1', icon: ShoppingBag, color: 'text-white', bg: 'bg-neutral-900 border-neutral-800' },
-    { title: 'Malware APK Engine', col: 'col-span-1 md:col-span-2', row: 'row-span-1', icon: FileWarning, color: 'text-red-400', bg: 'bg-red-500/5 border-red-500/20' },
-    { title: 'Deepfake Audio', col: 'col-span-1 md:col-span-2', row: 'row-span-1', icon: Mic, color: 'text-amber-400', bg: 'bg-amber-500/5 border-amber-500/20' },
-  ];
-
   return (
-    <section className="py-32 max-w-7xl mx-auto px-6">
-      <div className="text-center mb-20">
-        <h2 className="text-4xl md:text-5xl font-display font-medium tracking-tight mb-6">Unified Cyber Threat Platform</h2>
-        <p className="text-neutral-400 text-lg max-w-2xl mx-auto">Satu platform intelligence terintegrasi untuk mendeteksi berbagai vektor serangan manipulasi digital yang menargetkan masyarakat Indonesia.</p>
+    <section className="py-32 max-w-7xl mx-auto px-6 relative">
+      {/* Ambient glows */}
+      <div className="absolute top-0 left-10 right-10 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
+      <div className="absolute -top-40 left-10 w-[500px] h-[500px] bg-emerald-500/[0.03] blur-[130px] rounded-full pointer-events-none animate-pulse-slow" />
+      <div className="absolute -bottom-40 right-10 w-[500px] h-[500px] bg-blue-500/[0.03] blur-[130px] rounded-full pointer-events-none animate-pulse-slow" />
+
+      <div className="text-center mb-24 relative">
+        <div className="absolute inset-0 bg-emerald-500/5 blur-[100px] w-80 h-80 mx-auto rounded-full -top-20 pointer-events-none" />
+        <span className="inline-flex items-center gap-2 bg-neutral-900/80 backdrop-blur border border-neutral-800 rounded-full px-4 py-1.5 mb-6 text-[10px] font-mono text-emerald-400 font-medium tracking-wider uppercase">
+          Unified Security Features
+        </span>
+        <h2 className="text-4xl md:text-6xl font-display font-medium tracking-tight mb-6">
+          Satu Platform. Perlindungan Total.
+        </h2>
+        <p className="text-neutral-400 text-lg max-w-2xl mx-auto leading-relaxed">
+          VERIX memadukan kecerdasan buatan analitis dan proteksi deterministik untuk membongkar scam sebelum merugikan Anda.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-[180px]">
-        {features.map((f, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.1 }}
-            className={`group rounded-3xl border transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden relative ${f.bg} hover:bg-neutral-800/50 ${f.col} ${f.row}`}
-          >
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-neutral-950 border border-neutral-800 shadow-inner`}>
-              <f.icon className={`w-5 h-5 ${f.color}`} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-auto">
+        
+        {/* 1. Real-Time Threat Detection */}
+        <div className="group relative rounded-3xl border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800/85 transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden md:col-span-2 min-h-[380px]">
+          <BorderBeam colorFrom="#10b981" colorTo="#3b82f6" duration={10} borderWidth={1.5} />
+          <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
+                <Radar className="w-5 h-5 text-emerald-400" />
+              </div>
+              <span className="text-xs font-mono text-emerald-400 uppercase tracking-widest font-semibold">01. ENGINE CORE</span>
+              <h3 className="text-2xl font-display font-medium text-white tracking-tight mt-2 mb-3">Real-Time Threat Detection</h3>
+              <p className="text-neutral-400 text-sm mb-4">"Scan anything. Know instantly."</p>
+              <ul className="space-y-2 text-neutral-500 text-xs">
+                <li className="flex items-center gap-2">✓ Analisis URL, teks, dan screenshot dalam hitungan detik</li>
+                <li className="flex items-center gap-2">✓ Hybrid engine (rule-based + AI) untuk akurasi tinggi</li>
+                <li className="flex items-center gap-2">✓ Deteksi phishing, scam, malware, dan social engineering</li>
+                <li className="flex items-center gap-2">✓ Tidak bergantung sepenuhnya pada AI (anti-halusinasi)</li>
+              </ul>
+            </div>
+            
+            {/* Visual element: scanning mock */}
+            <div className="bg-neutral-950/80 border border-neutral-900/40 p-4 rounded-xl flex items-center justify-between text-xs font-mono mt-auto">
+              <div className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                <span className="text-neutral-400 truncate max-w-[200px] sm:max-w-xs">https://bca-klik-auth.secure-login.id</span>
+              </div>
+              <span className="text-emerald-400 font-bold">PHISHING SUSPECT</span>
             </div>
 
-            <div className="mt-6 z-10">
-              <h3 className="text-xl font-medium text-white tracking-tight">{f.title}</h3>
-              {f.row === 'row-span-2' && (
-                <p className="text-neutral-400 mt-4 leading-relaxed">
-                  Deteksi manipulasi psikologis, urgency palsu, dan taktik impersonation (social engineering) secara otomatis menggunakan NLP AI yang dilatih khusus untuk teks Bahasa Indonesia.
-                </p>
-              )}
+            <p className="text-[11px] text-neutral-600 font-mono italic mt-4">
+              "Bukan sekadar AI — ini sistem analisis keamanan."
+            </p>
+          </div>
+        </div>
+
+        {/* 5. Cybersecurity Reports */}
+        <ShineCardContainer className="col-span-1 md:col-span-1 min-h-[380px]">
+          <ShineCard glowColor="rgba(16, 185, 129, 0.1)">
+            <div className="flex flex-col h-full justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
+                  <BarChart3 className="w-5 h-5 text-teal-400" />
+                </div>
+                <span className="text-xs font-mono text-teal-400 uppercase tracking-widest font-semibold">02. INTELLIGENCE</span>
+                <h3 className="text-xl font-display font-medium text-white tracking-tight mt-2 mb-2">Cybersecurity Reports</h3>
+                <p className="text-neutral-400 text-xs mb-4">"Every scan becomes intelligence."</p>
+                <ul className="space-y-1.5 text-neutral-500 text-[11px]">
+                  <li className="flex items-center gap-1">✓ Riwayat scan lengkap dengan risk scoring</li>
+                  <li className="flex items-center gap-1">✓ Detail red flags & indikator teknis</li>
+                  <li className="flex items-center gap-1">✓ Export laporan (bukti hukum / edukasi)</li>
+                  <li className="flex items-center gap-1">✓ Insight tren serangan personal</li>
+                </ul>
+              </div>
+              
+              <p className="text-[10px] text-neutral-600 font-mono italic mt-6">
+                "Dari satu scan → jadi insight."
+              </p>
+            </div>
+          </ShineCard>
+        </ShineCardContainer>
+
+        {/* 6. Browser Extension (Coming Soon) */}
+        <ShineCardContainer className="col-span-1 md:col-span-1 min-h-[380px]">
+          <ShineCard glowColor="rgba(59, 130, 246, 0.1)">
+            <div className="flex flex-col h-full justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
+                  <Link2 className="w-5 h-5 text-blue-400" />
+                </div>
+                <span className="text-xs font-mono text-blue-400 uppercase tracking-widest font-semibold">03. ADDON</span>
+                <h3 className="text-xl font-display font-medium text-white tracking-tight mt-2 mb-2">Browser Extension</h3>
+                <p className="text-neutral-400 text-xs mb-4">"Protection, wherever you browse."</p>
+                <ul className="space-y-1.5 text-neutral-500 text-[11px]">
+                  <li className="flex items-center gap-1">✓ Deteksi phishing saat browsing</li>
+                  <li className="flex items-center gap-1">✓ Warning real-time sebelum klik link</li>
+                  <li className="flex items-center gap-1">✓ Integrasi langsung dengan VERIX engine</li>
+                  <li className="flex items-center gap-1">✓ Lightweight & privacy-first</li>
+                </ul>
+              </div>
+
+              <p className="text-[10px] text-neutral-600 font-mono italic mt-6">
+                "Jangan tunggu kena dulu baru sadar."
+              </p>
+            </div>
+          </ShineCard>
+        </ShineCardContainer>
+
+        {/* 2. AI-Powered Explanation */}
+        <div className="group relative rounded-3xl border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800/85 transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden md:col-span-2 min-h-[380px]">
+          <Spotlight fill="rgba(59, 130, 246, 0.12)" />
+          <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
+                <Eye className="w-5 h-5 text-blue-400" />
+              </div>
+              <span className="text-xs font-mono text-blue-400 uppercase tracking-widest font-semibold">04. EXPLAINABLE AI</span>
+              <h3 className="text-2xl font-display font-medium text-white tracking-tight mt-2 mb-3">AI-Powered Explanation</h3>
+              <p className="text-neutral-400 text-sm mb-4">"Understand the threat like an analyst."</p>
+              <ul className="space-y-2 text-neutral-500 text-xs">
+                <li className="flex items-center gap-2">✓ Penjelasan detail kenapa suatu konten berbahaya</li>
+                <li className="flex items-center gap-2">✓ Breakdown taktik manipulasi (urgency, impersonation, dll)</li>
+                <li className="flex items-center gap-2">✓ Output konsisten (deterministic-configured AI)</li>
+                <li className="flex items-center gap-2">✓ Multi-model fallback (Gemini, Claude, GPT)</li>
+              </ul>
             </div>
 
-            <div className="absolute inset-0 bg-gradient-to-br from-transparent to-black/20 pointer-events-none" />
-          </motion.div>
-        ))}
+            {/* Visual element: model badge pills */}
+            <div className="flex flex-wrap gap-2 mt-auto">
+              <span className="px-2.5 py-1 rounded-md bg-neutral-950 border border-neutral-800 text-[10px] font-mono text-blue-400 font-medium">Gemini 1.5 Pro</span>
+              <span className="px-2.5 py-1 rounded-md bg-neutral-950 border border-neutral-800 text-[10px] font-mono text-purple-400 font-medium">Claude 3.5 Sonnet</span>
+              <span className="px-2.5 py-1 rounded-md bg-neutral-950 border border-neutral-800 text-[10px] font-mono text-emerald-400 font-medium">GPT-4o API</span>
+            </div>
+
+            <p className="text-[11px] text-neutral-600 font-mono italic mt-4">
+              "Dari ‘ini scam’ → jadi ‘ini kenapa scam’."
+            </p>
+          </div>
+        </div>
+
+        {/* 3. WhatsApp Security Assistant */}
+        <div className="group relative rounded-3xl border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800/85 transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden md:col-span-2 min-h-[380px]">
+          <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
+                <MessageSquare className="w-5 h-5 text-purple-400" />
+              </div>
+              <span className="text-xs font-mono text-purple-400 uppercase tracking-widest font-semibold">05. BOT MESSENGER</span>
+              <h3 className="text-2xl font-display font-medium text-white tracking-tight mt-2 mb-3">WhatsApp Security Assistant</h3>
+              <p className="text-neutral-400 text-sm mb-4">"Forward. Scan. Stay safe."</p>
+              <ul className="space-y-2 text-neutral-500 text-xs">
+                <li className="flex items-center gap-2">✓ Kirim pesan mencurigakan langsung ke bot</li>
+                <li className="flex items-center gap-2">✓ Auto-detect link & scam dari chat</li>
+                <li className="flex items-center gap-2">✓ Bisa scan screenshot penipuan</li>
+                <li className="flex items-center gap-2">✓ Tidak perlu buka website</li>
+              </ul>
+            </div>
+
+            {/* Embedded Animated Beam Diagram */}
+            <div className="w-full mt-auto">
+              <AnimatedBeam />
+            </div>
+
+            <p className="text-[11px] text-neutral-600 font-mono italic mt-4">
+              "Security yang ikut ke chat kamu."
+            </p>
+          </div>
+        </div>
+
+        {/* 4. VERIX Pulse (Live Threat Intelligence) */}
+        <div className="group relative rounded-3xl border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800/85 transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden md:col-span-1 min-h-[380px]">
+          <Meteors number={10} />
+          <div className="relative z-10 flex flex-col h-full justify-between gap-6">
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
+                <Radar className="w-5 h-5 text-amber-400 animate-pulse" />
+              </div>
+              <span className="text-xs font-mono text-amber-400 uppercase tracking-widest font-semibold">06. THREAT PULSE</span>
+              <h3 className="text-2xl font-display font-medium text-white tracking-tight mt-2 mb-3">VERIX Pulse</h3>
+              <p className="text-neutral-400 text-sm mb-4">"See what’s happening."</p>
+              <ul className="space-y-2 text-neutral-500 text-xs">
+                <li className="flex items-center gap-2">✓ Feed ancaman real-time (Abuse.ch + PhishTank + lokal)</li>
+                <li className="flex items-center gap-2">✓ Hotspot scam di Indonesia</li>
+                <li className="flex items-center gap-2">✓ AI situational report harian</li>
+              </ul>
+            </div>
+
+            {/* Live Indicator */}
+            <div className="flex items-center gap-4 bg-neutral-950/60 p-3.5 border border-neutral-900 rounded-xl mt-auto z-10">
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+              </span>
+              <div className="text-left">
+                <p className="text-[10px] font-mono text-neutral-400 uppercase">ACTIVE THREAT DETECTED</p>
+                <p className="text-xs font-semibold text-white truncate max-w-[150px]">Phishing Tagihan Listrik PLN (.APK)</p>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-neutral-600 font-mono italic mt-4">
+              "Radar ancaman digital."
+            </p>
+          </div>
+        </div>
+
       </div>
     </section>
   );
@@ -363,8 +586,14 @@ function InteractiveDemo() {
   const demos = ['WhatsApp Social Engineering', 'Fake Transfer Receipt', 'QRIS Payment Manipulation'];
 
   return (
-    <section className="py-32 bg-neutral-900 border-t border-neutral-800">
-      <div className="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row gap-20 items-center">
+    <section className="py-32 bg-neutral-900/60 border-t border-neutral-800/80 relative overflow-hidden">
+      <LightRays count={8} color="rgba(255, 159, 28, 0.08)" speed={12} blur={40} length="70vh" className="opacity-60" />
+      {/* Top amber linear glow */}
+      <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-500/45 to-transparent" />
+      {/* Ambient amber/rose glows */}
+      <div className="absolute -bottom-20 right-1/4 w-[450px] h-[450px] bg-rose-500/[0.02] blur-[120px] rounded-full pointer-events-none animate-pulse-slow" />
+      <div className="absolute -top-20 left-1/4 w-[400px] h-[400px] bg-amber-500/[0.03] blur-[120px] rounded-full pointer-events-none animate-pulse-slow" />
+      <div className="max-w-7xl mx-auto px-6 relative z-10 flex flex-col lg:flex-row gap-20 items-center">
         <div className="flex-1 space-y-8">
           <div className="inline-flex items-center gap-2 bg-neutral-950 border border-neutral-800 rounded-full px-3 py-1">
             <span className="text-[10px] font-mono text-neutral-400 tracking-wider">LIVE ENGINE DEMONSTRATION</span>
@@ -392,7 +621,7 @@ function InteractiveDemo() {
           </div>
         </div>
 
-        <div className="flex-[1.2] w-full bg-[#0A0A0A] rounded-3xl border border-neutral-800 flex items-center justify-center p-8 lg:p-12 h-[500px] relative overflow-hidden">
+        <div className="flex-[1.2] w-full bg-neutral-950 rounded-3xl border border-neutral-800 flex items-center justify-center p-8 lg:p-12 h-[500px] relative overflow-hidden">
           {/* Graph paper background */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:32px_32px]" />
 
@@ -477,8 +706,14 @@ function InteractiveDemo() {
 
 function ExplainableAI() {
   return (
-    <section className="py-32 max-w-7xl mx-auto px-6">
-      <div className="flex flex-col lg:flex-row gap-20 items-center">
+    <section className="py-32 max-w-7xl mx-auto px-6 relative overflow-hidden">
+      {/* Top purple linear glow */}
+      <div className="absolute top-0 left-10 right-10 h-[1.5px] bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
+      {/* Ambient indigo/purple glows */}
+      <div className="absolute left-12 top-0 bottom-0 w-[1px] bg-gradient-to-b from-transparent via-blue-500/10 to-transparent pointer-events-none" />
+      <div className="absolute -top-20 left-10 w-[500px] h-[500px] bg-indigo-500/[0.03] blur-[140px] rounded-full pointer-events-none animate-pulse-slow" />
+      <div className="absolute bottom-10 right-10 w-[400px] h-[400px] bg-purple-500/[0.03] blur-[120px] rounded-full pointer-events-none animate-pulse-slow" />
+      <div className="flex flex-col lg:flex-row gap-20 items-center relative z-10">
         <div className="flex-1 space-y-8">
           <div className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1 mb-2">
             <span className="text-[10px] font-mono text-neutral-400 tracking-wider">EXPLAINABLE AI ENGINE</span>
@@ -506,7 +741,7 @@ function ExplainableAI() {
 
         <div className="flex-[1.2] w-full relative">
           <div className="absolute -inset-4 bg-gradient-to-tr from-emerald-500/10 via-transparent to-blue-500/10 blur-2xl rounded-full opacity-50" />
-          <div className="relative bg-[#0A0A0A] border border-neutral-800 rounded-3xl p-8 shadow-2xl">
+          <div className="relative bg-neutral-950 border border-neutral-800 rounded-3xl p-8 shadow-2xl">
             <div className="flex items-center justify-between mb-8 pb-6 border-b border-neutral-900">
               <span className="text-[10px] font-mono text-neutral-500">THREAT ANALYSIS LOG</span>
               <span className="text-[10px] font-mono text-neutral-500">ID: WH-924-A</span>
@@ -549,13 +784,74 @@ function ExplainableAI() {
 function ScamStatistics({ setActiveTab }: { setActiveTab: (id: string) => void }) {
   const intel = useIntel();
 
-  const threats = intel?.globalThreatsDetected || 12492;
-  const saved = intel?.accountsSaved || 85230;
-  const threatPct = intel?.threatPctChange || 14.5;
+  // Parse region scores and markers dynamically matching ThreatPulseView.tsx logic
+  const threatsList = (intel?.data && intel.data.length > 0) ? intel.data.map((item: any) => {
+    return {
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      severity: item.severity,
+      timestamp: item.publishedAt,
+      region: parseRegionFromTitle(item.title, item.link),
+      country: "ID"
+    };
+  }) : [
+    { id: 'm1', title: 'Phishing KlikBCA Clone', severity: 'CRITICAL', publishedAt: new Date().toISOString(), link: 'https://bca.com', type: 'PHISHING', region: 'Jakarta', country: 'ID' },
+    { id: 'm2', title: 'Undangan Pernikahan APK', severity: 'HIGH', publishedAt: new Date().toISOString(), link: 'https://whatsapp.com', type: 'MALWARE', region: 'Jawa Barat', country: 'ID' },
+    { id: 'm3', title: 'Palsu Donasi QRIS Masjid', severity: 'MEDIUM', publishedAt: new Date().toISOString(), link: 'https://qris.com', type: 'QRIS', region: 'Jawa Timur', country: 'ID' }
+  ];
+
+  const provinceScores: Record<string, { count: number; score: number }> = {};
+  threatsList.forEach((t: any) => {
+    if (t.country === "ID" && t.region) {
+      let regionName = t.region;
+      if (regionName === "Jakarta Raya") regionName = "Jakarta";
+      
+      if (!provinceScores[regionName]) {
+        provinceScores[regionName] = { count: 0, score: 0 };
+      }
+      provinceScores[regionName].count += 1;
+      
+      let severityWeight = 1;
+      if (t.severity === "CRITICAL") severityWeight = 3;
+      else if (t.severity === "HIGH") severityWeight = 2;
+      
+      provinceScores[regionName].score += severityWeight;
+    }
+  });
+
+  const getDecayWeight = (timestampStr: string) => {
+    const hours = (Date.now() - new Date(timestampStr).getTime()) / (1000 * 60 * 60);
+    return Math.max(0.35, Math.min(1.0, Math.exp(-hours / 24)));
+  };
+
+  const markers = threatsList.map((threat: any) => {
+    const [long, lat] = getJitteredCoords(threat.region, threat.id);
+    const weight = getDecayWeight(threat.timestamp);
+    return {
+      id: threat.id,
+      longitude: long,
+      latitude: lat,
+      severity: threat.severity as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+      weight: weight
+    };
+  });
+
+  const globalThreatsDetected = intel?.globalThreatsDetected || 34;
+  const accountsSaved = intel?.accountsSaved || 450;
+  const threatPct = intel?.threatPctChange || 15;
 
   return (
-    <section className="py-32 bg-[#0A0A0A] border-y border-neutral-900 relative overflow-hidden">
+    <section className="py-32 bg-neutral-950 border-y border-neutral-900 relative overflow-hidden">
+      {/* Top teal linear glow */}
+      <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-teal-500/40 to-transparent" />
+      {/* Ambient emerald/teal glows */}
+      <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-emerald-500/[0.04] blur-[100px] rounded-full pointer-events-none animate-pulse-slow" />
+      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/20 to-transparent" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
+
+      {/* Scanning grid line overlay */}
+      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent pointer-events-none z-10 animate-scan-y" />
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
@@ -567,7 +863,7 @@ function ScamStatistics({ setActiveTab }: { setActiveTab: (id: string) => void }
             <h2 className="text-4xl md:text-5xl font-display font-medium mb-6 tracking-tight">Threat Heatmap Indonesia</h2>
             <p className="text-neutral-400 text-lg max-w-2xl leading-relaxed">Visualisasi data intelijen secara real-time dari jutaan pemindaian link, laporan komunitas, dan analisis anomali transaksi perbankan di seluruh wilayah Indonesia.</p>
           </div>
-          <button onClick={() => setActiveTab('data')} className="text-white bg-neutral-900 border border-neutral-800 px-6 py-3 rounded-xl font-medium flex items-center gap-2 hover:bg-neutral-800 transition-colors shadow-sm">
+          <button onClick={() => setActiveTab('threatpulse')} className="text-white bg-neutral-900 border border-neutral-800 px-6 py-3 rounded-xl font-medium flex items-center gap-2 hover:bg-neutral-800 transition-colors shadow-sm">
             Open Full Reports <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -579,15 +875,12 @@ function ScamStatistics({ setActiveTab }: { setActiveTab: (id: string) => void }
             <div className="absolute inset-4 z-0 flex items-center justify-center overflow-hidden mix-blend-screen opacity-90 w-full h-full max-h-[340px]">
               <IndonesiaMap
                 theme="green"
-                markers={[
-                  { id: 'jkt', longitude: 106.8456, latitude: -6.2088, severity: 'CRITICAL', label: 'JKT', weight: 1.0 },
-                  { id: 'sby', longitude: 112.7521, latitude: -7.2504, severity: 'HIGH', weight: 0.8 },
-                  { id: 'plb', longitude: 104.7566, latitude: -2.9909, severity: 'LOW', weight: 0.9 }
-                ]}
+                provinceScores={provinceScores}
+                markers={markers}
               />
             </div>
 
-            {/* Target crosshairs for aesthetics */}
+            {/* Target crosshairs for aesthetics - retained decorative corner grids */}
             <div className="absolute top-4 left-4 w-4 h-4 border-t-2 border-l-2 border-emerald-400/50" />
             <div className="absolute top-4 right-4 w-4 h-4 border-t-2 border-r-2 border-emerald-400/50" />
             <div className="absolute bottom-4 left-4 w-4 h-4 border-b-2 border-l-2 border-emerald-400/50" />
@@ -608,7 +901,7 @@ function ScamStatistics({ setActiveTab }: { setActiveTab: (id: string) => void }
               <div className="flex items-center justify-between mb-4">
                 <span className="text-neutral-400 text-sm font-medium">Ancaman Terdeteksi (24j)</span>
               </div>
-              <p className="text-5xl font-display font-medium text-white mb-3">{threats.toLocaleString()}</p>
+              <p className="text-5xl font-display font-medium text-white mb-3">{globalThreatsDetected.toLocaleString()}</p>
               <p className="text-sm font-mono text-red-400 flex items-center gap-1">↑ {threatPct}% dari kemarin</p>
             </div>
 
@@ -617,7 +910,7 @@ function ScamStatistics({ setActiveTab }: { setActiveTab: (id: string) => void }
               <div className="flex items-center justify-between mb-4 relative z-10">
                 <span className="text-emerald-400/80 text-sm font-medium">Akun Terdampak Diselamatkan</span>
               </div>
-              <p className="text-5xl font-display font-medium text-emerald-400 mb-3 relative z-10">{saved.toLocaleString()}</p>
+              <p className="text-5xl font-display font-medium text-emerald-400 mb-3 relative z-10">{accountsSaved.toLocaleString()}</p>
               <p className="text-sm font-mono text-emerald-500/60 relative z-10">Total bulan ini</p>
             </div>
           </div>
@@ -715,14 +1008,17 @@ function IntelligenceEcosystem() {
   ];
 
   return (
-    <section className="py-32 bg-[#0B0F14] border-y border-neutral-800/50 relative overflow-hidden">
-      {/* Background Effects */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#161D27_1px,transparent_1px),linear-gradient(to_bottom,#161D27_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_0%,#000_70%,transparent_100%)] opacity-20 pointer-events-none" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-[500px] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none fade-in" />
+    <section className="py-32 bg-neutral-950 border-y border-neutral-800/50 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--color-neutral-800)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-neutral-800)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_70%,transparent_100%)] opacity-20 pointer-events-none" />
+      {/* Iridescent pulsing glows */}
+      <div className="absolute top-10 left-1/4 w-[400px] h-[400px] bg-emerald-500/[0.03] blur-[120px] rounded-full pointer-events-none animate-pulse-slow" />
+      <div className="absolute bottom-10 right-1/4 w-[450px] h-[450px] bg-cyan-500/[0.03] blur-[130px] rounded-full pointer-events-none animate-pulse-slow" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-[400px] h-[400px] bg-rose-500/[0.02] blur-[150px] rounded-full pointer-events-none animate-pulse-slow" />
+      <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         <div className="text-center mb-24 relative">
-          <div className="inline-flex items-center gap-2 bg-[#121821]/80 backdrop-blur border border-neutral-800 rounded-full px-4 py-1.5 mb-8 hover:bg-[#161D27] transition-colors cursor-default">
+          <div className="inline-flex items-center gap-2 bg-neutral-900/80 backdrop-blur border border-neutral-800 rounded-full px-4 py-1.5 mb-8 hover:bg-neutral-800 transition-colors cursor-default">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-[pulse_2s_ease-in-out_infinite] shadow-[0_0_10px_rgba(182,255,59,0.5)]" />
             <span className="text-[10px] font-mono text-emerald-400 tracking-wider">LIVE INTELLIGENCE ECOSYSTEM</span>
           </div>
@@ -753,7 +1049,7 @@ function IntelligenceEcosystem() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ delay: idx * 0.1, duration: 0.5 }}
-                className="bg-[#121821]/90 backdrop-blur-md border border-neutral-800 hover:border-neutral-600 p-8 rounded-[2rem] flex flex-col relative overflow-hidden group transition-all duration-500 shadow-xl hover:shadow-2xl hover:shadow-emerald-500/5 h-full"
+                className="bg-neutral-900/90 backdrop-blur-md border border-neutral-800 hover:border-neutral-600 p-8 rounded-[2rem] flex flex-col relative overflow-hidden group transition-all duration-500 shadow-xl hover:shadow-2xl hover:shadow-emerald-500/5 h-full"
               >
                 {/* Glow & Scan Effects */}
                 <div className={`absolute top-0 right-0 w-64 h-64 opacity-5 filter blur-[80px] transition-all duration-700 group-hover:opacity-30 group-hover:scale-150 ${source.bg}`} />
@@ -765,7 +1061,7 @@ function IntelligenceEcosystem() {
                     <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <Icon className={`w-6 h-6 ${source.color} relative z-10 group-hover:animate-pulse`} />
                   </div>
-                  <div className="flex items-center gap-2 bg-[#0A0E13] rounded-full px-3 py-1.5 border border-neutral-800 group-hover:border-neutral-700 transition-colors shadow-inner">
+                  <div className="flex items-center gap-2 bg-neutral-950 rounded-full px-3 py-1.5 border border-neutral-800 group-hover:border-neutral-700 transition-colors shadow-inner">
                     <span
                       className={`w-2 h-2 rounded-full animate-pulse`}
                       style={{ backgroundColor: dotColor, boxShadow: `0 0 8px ${dotColor}` }}
@@ -799,7 +1095,7 @@ function IntelligenceEcosystem() {
                         <span className="text-3xl font-display font-medium text-white group-hover:text-emerald-400 transition-colors tracking-tight">{source.stats}</span>
                         <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest mt-1">{source.statLabel}</span>
                       </div>
-                      <div className="w-10 h-10 rounded-full border border-neutral-800 flex items-center justify-center bg-[#0B0F14] group-hover:bg-[#161D27] group-hover:border-neutral-600 transition-all">
+                      <div className="w-10 h-10 rounded-full border border-neutral-800 flex items-center justify-center bg-neutral-950 group-hover:bg-neutral-800 group-hover:border-neutral-600 transition-all">
                         <ArrowRight className={`w-4 h-4 text-neutral-500 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all`} />
                       </div>
                     </div>
@@ -818,9 +1114,9 @@ function IntelligenceEcosystem() {
             <p className="text-neutral-400 text-lg relative z-10 max-w-xl mx-auto">Analisis ancaman multi-layer dalam hitungan milidetik. Dari deteksi awal hingga perlindungan aktif.</p>
           </div>
 
-          <div className="bg-[#121821] border border-neutral-800 rounded-3xl p-8 lg:p-12 relative overflow-hidden max-w-5xl mx-auto shadow-2xl">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 lg:p-12 relative overflow-hidden max-w-5xl mx-auto shadow-2xl">
             {/* Tech grid overlay */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#161D27_1px,transparent_1px),linear-gradient(to_bottom,#161D27_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_80%,transparent_100%)] opacity-30 pointer-events-none" />
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--color-neutral-800)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-neutral-800)_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_80%,transparent_100%)] opacity-30 pointer-events-none" />
 
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-2 pt-4 pb-4">
               {[
@@ -838,7 +1134,7 @@ function IntelligenceEcosystem() {
                     viewport={{ once: true, margin: "-50px" }}
                     className="flex flex-col items-center gap-5 relative group cursor-default"
                   >
-                    <div className={`w-20 h-20 rounded-2xl bg-[#0B0F14] border ${step.highlight ? 'border-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.3)]' : 'border-neutral-800 group-hover:border-neutral-600'} flex items-center justify-center transition-all relative overflow-hidden z-10 group-hover:scale-105`}>
+                    <div className={`w-20 h-20 rounded-2xl bg-neutral-950 border ${step.highlight ? 'border-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.3)]' : 'border-neutral-800 group-hover:border-neutral-600'} flex items-center justify-center transition-all relative overflow-hidden z-10 group-hover:scale-105`}>
                       {step.highlight && (
                         <div className="absolute inset-0 bg-emerald-500/20 blur-2xl animate-pulse" />
                       )}
@@ -895,7 +1191,11 @@ function EducationSection() {
   ];
 
   return (
-    <section className="py-32 max-w-7xl mx-auto px-6">
+    <section className="py-32 max-w-7xl mx-auto px-6 relative overflow-hidden">
+      {/* Ambient glows and top linear boundary */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-cyan-500/[0.03] blur-[120px] rounded-full pointer-events-none animate-pulse-slow" />
+      <div className="absolute bottom-0 left-10 w-[300px] h-[300px] bg-amber-500/[0.02] blur-[100px] rounded-full pointer-events-none animate-pulse-slow" />
+      <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-500/20 via-amber-500/20 to-transparent" />
       <div className="text-center mb-16">
         <div className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1 mb-6">
           <span className="text-[10px] font-mono text-cyan-400 tracking-wider">THREAT INTELLIGENCE EDUCATION</span>
@@ -912,7 +1212,7 @@ function EducationSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: i * 0.1 }}
-            className={`group rounded-3xl border border-neutral-800/80 bg-[#0c0c0c] hover:bg-[#111111] transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden relative shadow-2xl hover:shadow-[0_0_40px_rgba(255,255,255,0.05)] cursor-default ${article.col}`}
+            className={`group rounded-3xl border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800 transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden relative shadow-2xl hover:shadow-[0_0_40px_rgba(255,255,255,0.05)] cursor-default ${article.col}`}
           >
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
 
@@ -945,13 +1245,18 @@ export function Dashboard({ setActiveTab }: { setActiveTab: (id: string) => void
       <ScamStatistics setActiveTab={setActiveTab} />
       <IntelligenceEcosystem />
       <EducationSection />
-      <div className="py-24 text-center max-w-4xl mx-auto px-6">
-        <div className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1 mb-6">
+      <div className="py-24 text-center max-w-4xl mx-auto px-6 relative overflow-hidden">
+        {/* Pure white-to-emerald spotlight & bottom white linear glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-emerald-500/[0.03] blur-[120px] rounded-full pointer-events-none animate-pulse-slow" />
+        <div className="absolute top-10 left-1/3 w-[300px] h-[300px] bg-white/[0.02] blur-[100px] rounded-full pointer-events-none animate-pulse-slow" />
+        <div className="absolute bottom-0 left-10 right-10 h-[1.5px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+        <div className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1 mb-6 relative z-10">
           <span className="text-[10px] font-mono text-emerald-400 tracking-wider">VERIFIKASI RISIKO DIGITAL</span>
         </div>
-        <h2 className="text-4xl md:text-5xl font-display font-medium mb-6 tracking-tight">Saring Sebelum Percaya.</h2>
-        <p className="text-lg text-neutral-400 mb-10">Deteksi Ancaman Sebelum Terlambat. Bergabung dengan ekosistem intelijen digital kami dan lindungi diri Anda hari ini.</p>
-        <button onClick={() => setActiveTab('scanner')} className="bg-emerald-400 text-neutral-950 px-10 py-4 rounded-xl font-medium hover:bg-emerald-300 transition-colors shadow-[0_0_40px_rgba(182,255,59,0.15)] flex items-center gap-2 mx-auto">
+        <h2 className="text-4xl md:text-5xl font-display font-medium mb-6 tracking-tight relative z-10">Saring Sebelum Percaya.</h2>
+        <p className="text-lg text-neutral-400 mb-10 relative z-10">Deteksi Ancaman Sebelum Terlambat. Bergabung dengan ekosistem intelijen digital kami dan lindungi diri Anda hari ini.</p>
+        <button onClick={() => setActiveTab('scanner')} className="bg-emerald-400 text-neutral-950 px-10 py-4 rounded-xl font-medium hover:bg-emerald-300 transition-colors shadow-[0_0_40px_rgba(182,255,59,0.15)] flex items-center gap-2 mx-auto relative z-10">
           Mulai Analisis Sekarang <ArrowRight className="w-4 h-4" />
         </button>
       </div>

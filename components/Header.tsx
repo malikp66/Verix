@@ -34,10 +34,10 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
 
   return (
     <>
-      <header className={`sticky top-0 z-50 w-full flex flex-col transition-all duration-300 ${scrolled ? 'bg-[#0a0e13]/80 backdrop-blur-xl border-b border-neutral-800 shadow-[0_4px_30px_rgba(0,0,0,0.5)]' : 'bg-transparent'}`}>
+      <header className={`sticky top-0 z-50 w-full flex flex-col transition-all duration-300 ${scrolled ? 'bg-neutral-950/80 backdrop-blur-xl border-b border-neutral-800 shadow-[0_4px_30px_rgba(0,0,0,0.5)]' : 'bg-transparent'}`}>
         {/* Layer 1: Live Threat Ticker */}
-        <div className={`w-full overflow-hidden flex items-center border-b border-neutral-800/50 bg-[#0A0E13]/60 transition-all duration-300 ${scrolled ? 'h-8 opacity-80' : 'h-10 opacity-100'}`}>
-          <div className="flex items-center gap-2 shrink-0 px-4 md:px-6 z-20 border-r border-neutral-800/80 h-full bg-[#05070A]/50 glass">
+        <div className={`w-full overflow-hidden flex items-center border-b border-neutral-800/50 bg-neutral-950/60 transition-all duration-300 ${scrolled ? 'h-8 opacity-80' : 'h-10 opacity-100'}`}>
+          <div className="flex items-center gap-2 shrink-0 px-4 md:px-6 z-20 border-r border-neutral-800/80 h-full bg-neutral-900/50 glass">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(182,255,59,0.8)]" />
             <span className="text-[9px] md:text-[10px] font-mono text-emerald-400 font-bold tracking-widest hidden sm:inline-block">LIVE THREAT FEED</span>
             <span className="text-[9px] md:text-[10px] font-mono text-emerald-400 font-bold tracking-widest sm:hidden">LIVE</span>
@@ -61,11 +61,11 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
               ))}
             </motion.div>
             {/* Gradient masks for smooth fade */}
-            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#0A0E13] to-transparent pointer-events-none" />
-            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0A0E13] to-transparent pointer-events-none" />
+            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-neutral-950 to-transparent pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-neutral-950 to-transparent pointer-events-none" />
           </div>
 
-          <div className="items-center gap-2 shrink-0 px-4 md:px-6 z-20 border-l border-neutral-800/80 h-full bg-[#05070A]/50 hidden sm:flex">
+          <div className="items-center gap-2 shrink-0 px-4 md:px-6 z-20 border-l border-neutral-800/80 h-full bg-neutral-900/50 hidden sm:flex">
             <span className="text-[9px] font-mono text-neutral-500 tracking-widest">THREAT NETWORK ONLINE</span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-[pulse_2s_ease-in-out_infinite]" />
           </div>
@@ -167,7 +167,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
             {/* Mobile Hamburger */}
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="w-10 h-10 rounded-lg bg-[#05070A]/50 border border-neutral-800 flex items-center justify-center text-neutral-400 hover:text-white lg:hidden"
+              className="w-10 h-10 rounded-lg bg-neutral-900/50 border border-neutral-800 flex items-center justify-center text-neutral-400 hover:text-white lg:hidden"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -184,16 +184,16 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 z-[60] bg-[#0A0E13]/80 backdrop-blur-sm lg:hidden"
+              className="fixed inset-0 z-[60] bg-neutral-950/80 backdrop-blur-sm lg:hidden"
             />
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 bottom-0 w-[280px] z-[70] bg-[#0A0E13] border-l border-neutral-800 shadow-2xl flex flex-col lg:hidden"
+              className="fixed top-0 right-0 bottom-0 w-[280px] z-[70] bg-neutral-950 border-l border-neutral-800 shadow-2xl flex flex-col lg:hidden"
             >
-              <div className="p-5 border-b border-neutral-800/50 flex items-center justify-between bg-[#05070A]/30">
+              <div className="p-5 border-b border-neutral-800/50 flex items-center justify-between bg-neutral-900/30">
                  <div className="flex items-center gap-2">
                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center relative overflow-hidden group">
                      <Shield className="w-4 h-4 text-emerald-400 relative z-10" />
@@ -202,7 +202,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
                  </div>
                  <button
                    onClick={() => setIsMobileMenuOpen(false)}
-                   className="w-8 h-8 flex items-center justify-center rounded-md bg-[#05070A]/50 border border-neutral-800 text-neutral-400 hover:text-white transition-colors"
+                   className="w-8 h-8 flex items-center justify-center rounded-md bg-neutral-900/50 border border-neutral-800 text-neutral-400 hover:text-white transition-colors"
                  >
                    <X className="w-4 h-4" />
                  </button>
@@ -229,7 +229,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
                 })}
               </div>
               
-              <div className="p-5 border-t border-neutral-800/50 bg-[#05070A]/30 mb-safe flex flex-col gap-4">
+              <div className="p-5 border-t border-neutral-800/50 bg-neutral-900/30 mb-safe flex flex-col gap-4">
                  <div className="flex items-center gap-3">
                    <div className="w-8 h-8 rounded-md bg-neutral-800 flex items-center justify-center text-[10px] font-mono text-neutral-400 border border-neutral-700 overflow-hidden">
                      {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" /> : 'ID'}

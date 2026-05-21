@@ -27,7 +27,7 @@ export default function Home() {
         return <SettingsView />;
       default:
         return (
-          <div className="flex-1 flex items-center justify-center h-screen flex-col text-neutral-500 bg-[#0A0E13]">
+          <div className="flex-1 flex items-center justify-center h-screen flex-col text-neutral-500 bg-neutral-950">
             <h2 className="text-2xl font-medium text-white mb-2 font-display">Unknown View</h2>
           </div>
         );
@@ -45,7 +45,7 @@ export default function Home() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, ease: 'easeOut' }}
-          className="flex flex-col min-h-screen bg-[#0A0E13]"
+          className="flex flex-col min-h-screen bg-neutral-950"
         >
           <Header activeTab={activeTab} setActiveTab={setActiveTab} />
           <div className="flex-1 w-full min-w-0 flex flex-col">

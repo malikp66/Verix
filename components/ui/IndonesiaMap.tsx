@@ -65,14 +65,14 @@ export function IndonesiaMap({ theme, markers = [], className = '', onHoverProvi
       // Muted background shapes for neighboring countries
       if (theme === 'green') {
         return {
-          fill: '#0B0F14',
-          stroke: '#263041',
+          fill: '#050507',
+          stroke: '#161D27',
           strokeWidth: 0.5,
         };
       } else {
         return {
-          fill: '#080c14',
-          stroke: '#121820',
+          fill: '#050507',
+          stroke: '#161D27',
           strokeWidth: 0.4,
         };
       }
@@ -255,7 +255,7 @@ export function IndonesiaMap({ theme, markers = [], className = '', onHoverProvi
               <circle
                 r={4 * weight}
                 fill={markerColor}
-                stroke="#05070a"
+                stroke="#030303"
                 strokeWidth={1}
                 className="transition-transform duration-200 group-hover:scale-125"
                 style={{ opacity: weight }}
@@ -307,7 +307,7 @@ export function IndonesiaMap({ theme, markers = [], className = '', onHoverProvi
 
         return (
           <div
-            className="absolute z-35 pointer-events-none p-3 rounded-xl bg-[#070b12]/95 border border-neutral-800/80 text-[10px] font-mono shadow-2xl backdrop-blur-md -translate-x-1/2 -translate-y-full flex flex-col gap-1.5 min-w-[170px] transition-all duration-75"
+            className="absolute z-35 pointer-events-none p-3 rounded-xl bg-neutral-900/95 border border-neutral-800/80 text-[10px] font-mono shadow-2xl backdrop-blur-md -translate-x-1/2 -translate-y-full flex flex-col gap-1.5 min-w-[170px] transition-all duration-75"
             style={{
               left: hoveredProvince.x,
               top: hoveredProvince.y - 12,

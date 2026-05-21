@@ -472,7 +472,7 @@ export function ThreatPulseView() {
                       <div className="text-white text-sm font-medium leading-snug">{hoveredThreat.title}</div>
                       
                       {hoveredThreat.url && (
-                        <div className="bg-[#05070A]/50 border border-neutral-900/60 rounded px-2 py-1 flex items-center justify-between mt-1">
+                        <div className="bg-neutral-900/50 border border-neutral-900/60 rounded px-2 py-1 flex items-center justify-between mt-1">
                           <span className="text-[10px] font-mono text-neutral-500 truncate max-w-[200px]">{hoveredThreat.domain || hoveredThreat.url}</span>
                           <span className="text-[8px] bg-neutral-800 px-1 rounded font-mono text-neutral-400">URL</span>
                         </div>
@@ -794,7 +794,7 @@ export function ThreatPulseView() {
               {/* Threat Story Attack Graph Flowchart */}
               <div className="flex flex-col gap-2.5">
                 <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">Attack Flow / Threat Story:</span>
-                <div className="flex flex-wrap items-center gap-2 bg-[#05070a]/60 border border-neutral-950 p-4 rounded-xl">
+                <div className="flex flex-wrap items-center gap-2 bg-neutral-900/60 border border-neutral-950 p-4 rounded-xl">
                   {CAMPAIGN_FLOWS[selectedCampaignTab].steps.map((step, sIdx) => (
                     <div key={sIdx} className="flex items-center gap-2">
                       <div className="bg-[#141414] border border-neutral-800 text-xs px-3 py-1.5 rounded-lg text-neutral-300 font-mono shadow">
