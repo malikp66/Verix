@@ -32,7 +32,8 @@ async function fetchWithTimeout(url: string, options = {}, timeout = 2500) {
 async function fetchRecentAbuseCh(): Promise<ThreatItem[]> {
   try {
     const res = await fetchWithTimeout("https://urlhaus.abuse.ch/downloads/json_recent/", {
-      headers: { "User-Agent": "VERIX-ThreatPulse-Engine/1.0" }
+      headers: { "User-Agent": "VERIX-ThreatPulse-Engine/1.0" },
+      cache: 'no-store',
     }, 3000);
     
     if (!res.ok) return [];

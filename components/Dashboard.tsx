@@ -5,6 +5,7 @@ import { ArrowRight, ShieldAlert, Zap, Lock, Smartphone, FileWarning, Eye, Uploa
 import { LightRays } from './ui/light-rays';
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 import { useAuth } from './FirebaseProvider';
 import { IndonesiaMap } from './ui/IndonesiaMap';
 
@@ -64,6 +65,7 @@ function parseRegionFromTitle(title: string, link: string): string {
 function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
   const { user, login } = useAuth();
   const videoRef = React.useRef<HTMLVideoElement>(null);
+  const [videoLoaded, setVideoLoaded] = useState(false);
 
   React.useEffect(() => {
     if (videoRef.current) {
@@ -99,7 +101,7 @@ function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
   }, []);
 
   return (
-    <section className="relative py-12 flex flex-col items-center justify-between text-center overflow-hidden min-h-screen w-full">
+    <section className="relative pb-12 flex flex-col items-center justify-between text-center overflow-hidden min-h-screen w-full">
 
       {/* Video Background */}
       <video
@@ -109,7 +111,11 @@ function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
         loop
         playsInline
         preload="auto"
-        className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none opacity-40 transition-opacity duration-1000"
+        onLoadedData={() => setVideoLoaded(true)}
+        className={cn(
+          "absolute inset-0 w-full h-full object-cover z-0 pointer-events-none transition-opacity duration-1000",
+          videoLoaded ? "opacity-40" : "opacity-0"
+        )}
       >
         <source src="/hero-section.mp4" type="video/mp4" />
       </video>
@@ -174,9 +180,12 @@ function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
                 <ArrowRight className="w-5 h-5 text-emerald-600 relative z-10 group-hover:translate-x-1 transition-transform" />
               </button>
             )}
-            <button onClick={() => setActiveTab('threatpulse')} className="w-full sm:w-auto bg-neutral-900/80 backdrop-blur-md text-white px-10 py-4 rounded-xl font-medium hover:bg-neutral-800 transition-all duration-300 border border-neutral-800 hover:border-neutral-700 flex items-center justify-center gap-3 group shadow-xl">
-              <Radar className="w-5 h-5 text-neutral-400 group-hover:text-emerald-400 transition-colors" />
-              <span className="tracking-wide text-sm md:text-base">Lihat Threat Radar</span>
+            <button
+              onClick={() => setActiveTab('scanner')}
+              className="w-full sm:w-auto bg-neutral-900/80 backdrop-blur-md text-white px-10 py-4 rounded-xl font-medium hover:bg-neutral-800 transition-all duration-300 border border-neutral-800 hover:border-neutral-700 flex items-center justify-center gap-3 group shadow-xl"
+            >
+              <Zap className="w-5 h-5 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
+              <span className="tracking-wide text-sm md:text-base">Mulai Analisa</span>
             </button>
           </motion.div>
         </div>
@@ -504,15 +513,42 @@ function BentoGrid() {
                 <li className="flex items-center gap-2">✓ Penjelasan detail kenapa suatu konten berbahaya</li>
                 <li className="flex items-center gap-2">✓ Breakdown taktik manipulasi (urgency, impersonation, dll)</li>
                 <li className="flex items-center gap-2">✓ Output konsisten (deterministic-configured AI)</li>
-                <li className="flex items-center gap-2">✓ Multi-model fallback (Gemini, Claude, GPT)</li>
+                <li className="flex items-center gap-2">✓ Multi-model fallback (DeepSeek, Pixtral, Qwen, Gemini)</li>
               </ul>
             </div>
 
-            {/* Visual element: model badge pills */}
-            <div className="flex flex-wrap gap-2 mt-auto">
-              <span className="px-2.5 py-1 rounded-md bg-neutral-950 border border-neutral-800 text-[10px] font-mono text-blue-400 font-medium">Gemini 1.5 Pro</span>
-              <span className="px-2.5 py-1 rounded-md bg-neutral-950 border border-neutral-800 text-[10px] font-mono text-purple-400 font-medium">Claude 3.5 Sonnet</span>
-              <span className="px-2.5 py-1 rounded-md bg-neutral-950 border border-neutral-800 text-[10px] font-mono text-emerald-400 font-medium">GPT-4o API</span>
+            {/* Floating AI Model Bubbles */}
+            <div className="absolute right-6 top-1/2 -translate-y-1/2 w-[140px] h-[160px] pointer-events-none">
+              <div className="relative w-full h-full">
+                {/* DeepSeek V3 — Top Left */}
+                <div
+                  className="absolute left-0 top-2 w-10 h-10 rounded-full bg-neutral-800/40 backdrop-blur-sm border border-neutral-700/30 flex items-center justify-center shadow-[0_0_14px_rgba(59,130,246,0.18)] animate-[float-bubble-1_6s_ease-in-out_infinite]"
+                  style={{ animationDelay: '0s' }}
+                >
+                  <Image src="/logos/deepseek.svg" width={18} height={18} alt="DeepSeek" />
+                </div>
+                {/* Pixtral Large — Top Right */}
+                <div
+                  className="absolute right-0 top-0 w-10 h-10 rounded-full bg-neutral-800/40 backdrop-blur-sm border border-neutral-700/30 flex items-center justify-center shadow-[0_0_14px_rgba(168,85,247,0.18)] animate-[float-bubble-2_5s_ease-in-out_infinite]"
+                  style={{ animationDelay: '0.5s' }}
+                >
+                  <Image src="/logos/mistral.svg" width={18} height={18} alt="Pixtral" />
+                </div>
+                {/* Qwen 2.5 VL — Bottom Left */}
+                <div
+                  className="absolute left-2 bottom-2 w-10 h-10 rounded-full bg-neutral-800/40 backdrop-blur-sm border border-neutral-700/30 flex items-center justify-center shadow-[0_0_14px_rgba(16,185,129,0.18)] animate-[float-bubble-3_7s_ease-in-out_infinite]"
+                  style={{ animationDelay: '1s' }}
+                >
+                  <Image src="/logos/qwen.svg" width={18} height={18} alt="Qwen" />
+                </div>
+                {/* Gemini Vision — Bottom Right (Larger) */}
+                <div
+                  className="absolute right-2 bottom-0 w-14 h-14 rounded-full bg-neutral-800/60 backdrop-blur-md border-2 border-amber-500/25 flex items-center justify-center shadow-[0_0_24px_rgba(245,158,11,0.25)] animate-[float-bubble-gemini_8s_ease-in-out_infinite]"
+                  style={{ animationDelay: '1.5s' }}
+                >
+                  <Image src="/logos/gemini.svg" width={24} height={24} alt="Gemini" />
+                </div>
+              </div>
             </div>
 
             <p className="text-[11px] text-neutral-600 font-mono italic mt-4">
@@ -1111,20 +1147,6 @@ function IntelligenceEcosystem() {
                     </div>
                   </div>
                 </div>
-
-                <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500 ease-out">
-                  <div className="overflow-hidden">
-                    <div className="z-10 mt-6 pt-6 border-t border-neutral-800/80 flex items-center justify-between group-hover:border-neutral-700 transition-colors">
-                      <div className="flex flex-col">
-                        <span className="text-3xl font-display font-medium text-white group-hover:text-emerald-400 transition-colors tracking-tight">{source.stats}</span>
-                        <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest mt-1">{source.statLabel}</span>
-                      </div>
-                      <div className="w-10 h-10 rounded-full border border-neutral-800 flex items-center justify-center bg-neutral-950 group-hover:bg-neutral-800 group-hover:border-neutral-600 transition-all">
-                        <ArrowRight className={`w-4 h-4 text-neutral-500 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all`} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </motion.div>
             )
           })}
@@ -1216,10 +1238,13 @@ function EducationSection() {
 
   return (
     <section className="py-32 max-w-7xl mx-auto px-6 relative overflow-hidden">
-      {/* Ambient glows and top linear boundary */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-cyan-500/[0.03] blur-[120px] rounded-full pointer-events-none animate-pulse-slow" />
-      <div className="absolute bottom-0 left-10 w-[300px] h-[300px] bg-amber-500/[0.02] blur-[100px] rounded-full pointer-events-none animate-pulse-slow" />
-      <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-500/20 via-amber-500/20 to-transparent" />
+      {/* Top teal linear glow */}
+      <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-teal-500/40 to-transparent" />
+      {/* Ambient emerald/teal glows */}
+      <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-emerald-500/[0.04] blur-[100px] rounded-full pointer-events-none animate-pulse-slow" />
+      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/20 to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
+
       <div className="text-center mb-16">
         <div className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1 mb-6">
           <span className="text-[10px] font-mono text-cyan-400 tracking-wider">EDUKASI INTELIJEN ANCAMAN</span>
@@ -1266,7 +1291,7 @@ export function Dashboard({ setActiveTab }: { setActiveTab: (id: string) => void
       <BentoGrid />
       <InteractiveDemo />
       <ExplainableAI />
-      <ScamStatistics setActiveTab={setActiveTab} />
+      {/* <ScamStatistics setActiveTab={setActiveTab} /> */}
       <IntelligenceEcosystem />
       <EducationSection />
       <div className="py-24 text-center max-w-4xl mx-auto px-6 relative overflow-hidden">

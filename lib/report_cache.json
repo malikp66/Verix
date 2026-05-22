@@ -1,0 +1,24 @@
+{
+  "report": {
+    "headline": "Lanskap Ancaman Siber di Indonesia: Penipuan dan Hoax Menjadi Tren Utama",
+    "summary": "Lanskap ancaman siber di Indonesia saat ini ditandai oleh peningkatan kasus penipuan dan hoax. Berbagai lembaga pemerintah dan swasta, termasuk Bank Indonesia, Kementerian Keuangan, dan Imigrasi, telah melaporkan sejumlah insiden penipuan yang melibatkan calon jemaah haji, investor, dan pengguna internet. Penipuan haji non prosedural, penipuan investasi daring, dan love scam menjadi beberapa modus operandi yang sering digunakan. Selain itu, hoax mengenai program bantuan pensiunan juga telah beredar, menambah kerumitan situasi. Upaya edukasi dan pencegahan terus dilakukan oleh berbagai pihak untuk mengurangi dampak negatif dari ancaman-ancaman ini.",
+    "key_trends": [
+      "Penipuan haji non prosedural dan investasi daring menjadi tren utama.",
+      "Love scam melibatkan WNA dan penduduk lokal.",
+      "Edukasi dan pencegahan penipuan digital ditingkatkan oleh lembaga pemerintah dan swasta."
+    ],
+    "attack_vectors": [
+      "SOCIAL_ENGINEERING",
+      "LINK"
+    ],
+    "risk_assessment": "HIGH",
+    "recommended_actions": [
+      "Meningkatkan literasi keuangan dan digital melalui program edukasi.",
+      "Melaporkan setiap kecurigaan penipuan ke lembaga terkait.",
+      "Menggunakan sumber informasi resmi dan terpercaya untuk menghindari hoax.",
+      "Menghindari transaksi dengan entitas yang tidak jelas atau mencurigakan."
+    ]
+  },
+  "month": "2026-05",
+  "generatedAt": "2026-05-22T08:47:32.789Z"
+}

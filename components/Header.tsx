@@ -6,10 +6,12 @@ import { Shield, ChevronDown, Menu, X, Sparkles } from 'lucide-react';
 import { useIntel } from './IntelligenceProvider';
 import { useAuth } from './FirebaseProvider';
 import { useAICredits } from '@/hooks/use-ai-credits';
+import { CreditTopUpModal } from './CreditTopUpModal';
 
 export function Header({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (id: string) => void }) {
   const [scrolled, setScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showTopUpModal, setShowTopUpModal] = useState(false);
   const intel = useIntel();
   const { user, login } = useAuth();
   const { credits, isCreditLoading, topUpCredits } = useAICredits();
@@ -138,13 +140,13 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
                    {isCreditLoading ? '... ' : credits}{' '}
                    <span className="text-emerald-500/70 hidden xl:inline">AI Credits</span>
                  </span>
-                 <button 
-                   onClick={() => topUpCredits(10)} 
-                   title="Top Up 10 Kredit AI" 
-                   className="ml-1 px-1.5 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[9px] font-bold font-mono rounded transition-all active:scale-95 flex items-center justify-center cursor-pointer"
-                 >
-                   + TOP UP
-                 </button>
+                  <button 
+                    onClick={() => setShowTopUpModal(true)} 
+                    title="Top Up AI Credits" 
+                    className="ml-1 px-1.5 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[9px] font-bold font-mono rounded transition-all active:scale-95 flex items-center justify-center cursor-pointer"
+                  >
+                    + TOP UP
+                  </button>
               </div>
             </div>
 
@@ -249,30 +251,30 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
                        </span>
                        <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1.5">
                          <Sparkles className="w-3 h-3" /> {isCreditLoading ? '... ' : credits} AI Credits
-                         <button 
-                           onClick={() => topUpCredits(10)} 
-                           className="ml-1 px-1 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[8px] font-bold font-mono rounded cursor-pointer"
-                         >
-                           + TOP UP
-                         </button>
-                       </span>
-                     </div>
-                   </div>
-                 )}
-                 {!user && (
-                   <div className="flex items-center justify-between">
-                     <span className="text-[10px] font-mono text-neutral-500 tracking-wider">GUEST ACCESS</span>
-                     <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                       <Sparkles className="w-3 h-3 text-emerald-400" />
-                       <span className="text-[10px] font-mono text-emerald-300">
-                         {isCreditLoading ? '... ' : credits} AI Credits
-                       </span>
-                       <button 
-                         onClick={() => topUpCredits(10)} 
-                         className="ml-1 px-1 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[8px] font-bold font-mono rounded cursor-pointer"
-                       >
-                         + TOP UP
-                       </button>
+                          <button 
+                            onClick={() => setShowTopUpModal(true)} 
+                            className="ml-1 px-1 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[8px] font-bold font-mono rounded cursor-pointer"
+                          >
+                            + TOP UP
+                          </button>
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {!user && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono text-neutral-500 tracking-wider">GUEST ACCESS</span>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                        <Sparkles className="w-3 h-3 text-emerald-400" />
+                        <span className="text-[10px] font-mono text-emerald-300">
+                          {isCreditLoading ? '... ' : credits} AI Credits
+                        </span>
+                        <button 
+                          onClick={() => setShowTopUpModal(true)} 
+                          className="ml-1 px-1 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[8px] font-bold font-mono rounded cursor-pointer"
+                        >
+                          + TOP UP
+                        </button>
                      </div>
                    </div>
                  )}
@@ -303,6 +305,14 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
           </>
         )}
       </AnimatePresence>
+      <CreditTopUpModal
+        isOpen={showTopUpModal}
+        onClose={() => setShowTopUpModal(false)}
+        user={user as Record<string, unknown> | null}
+        topUpCredits={topUpCredits}
+        credits={credits}
+        onLogin={login}
+      />
     </>
   );
 }

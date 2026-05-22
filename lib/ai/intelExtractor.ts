@@ -2,8 +2,7 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 
 const OPENROUTER_MODELS = [
   "google/gemini-2.5-flash",
-  "anthropic/claude-3-haiku",
-  "openai/gpt-4o-mini"
+  "deepseek/deepseek-chat"
 ];
 
 // Definition of schema using standard Schema type from @google/genai
@@ -54,25 +53,69 @@ const INTEL_SCHEMA: Schema = {
   required: ["enriched", "report"]
 };
 
+function repairJSON(raw: string): string | null {
+  const cleaned = raw.trim()
+    .replace(/^```(?:json)?\s*\n?/gm, '')
+    .replace(/\n?```$/gm, '')
+    .trim();
+
+  try { JSON.parse(cleaned); return cleaned; } catch {}
+
+  let openBraces = 0, openBrackets = 0, inString = false, escaped = false;
+  for (const ch of cleaned) {
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\' && inString) { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') openBraces++;
+    else if (ch === '}') openBraces--;
+    else if (ch === '[') openBrackets++;
+    else if (ch === ']') openBrackets--;
+  }
+
+  let repaired = cleaned;
+  if (inString) repaired += '"';
+  while (openBraces > 0) { repaired += '}'; openBraces--; }
+  while (openBrackets > 0) { repaired += ']'; openBrackets--; }
+
+  try { JSON.parse(repaired); return repaired; } catch { return null; }
+}
+
 function safeParseAndValidate(rawContent: string, expectedLength: number) {
+  const cleaned = rawContent
+    .replace(/^```(?:json)?\s*\n?/gm, '')
+    .replace(/\n?```$/gm, '')
+    .trim();
+
   let parsed: any = null;
   try {
-    const cleaned = rawContent.replace(/```json\n?|\n?```/g, "").trim();
     parsed = JSON.parse(cleaned);
   } catch (e) {
-    console.error("[AI Layer] JSON Parse failed:", e);
-    throw new Error("Invalid JSON from AI");
+    console.warn("[AI Layer] JSON Parse failed, attempting repair:", e);
+    const repaired = repairJSON(cleaned);
+    if (repaired) {
+      try {
+        parsed = JSON.parse(repaired);
+        console.log("[AI Layer] JSON repaired successfully.");
+      } catch {
+        console.error("[AI Layer] JSON repair failed.");
+        return null;
+      }
+    } else {
+      console.error("[AI Layer] JSON repair failed.");
+      return null;
+    }
   }
 
-  // Basic validation checks
-  if (!parsed.enriched || !Array.isArray(parsed.enriched)) {
-    throw new Error("Missing 'enriched' array in response");
+  if (!parsed?.enriched || !Array.isArray(parsed.enriched)) {
+    console.warn("[AI Layer] Missing 'enriched' array — returning null.");
+    return null;
   }
-  if (!parsed.report || typeof parsed.report !== 'object') {
-    throw new Error("Missing 'report' object in response");
+  if (!parsed?.report || typeof parsed.report !== 'object') {
+    console.warn("[AI Layer] Missing 'report' object — returning null.");
+    return null;
   }
 
-  // Return the validated data
   return parsed;
 }
 
@@ -98,7 +141,34 @@ STRICT INSTRUCTIONS:
 - The 'enriched' array length MUST be exactly ${items.length}. Do NOT drop, skip, or group items together.
 - Output MUST be valid JSON, containing no comments or extra conversational text.`;
 
-  // 1. Try OpenRouter Multi-Model Fallback Chain
+  // 1. Try Native Gemini SDK first (free tier, lowest cost)
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    try {
+      console.log(`[AI Layer] Attempting extraction with Native Gemini SDK (free)`);
+      const ai = new GoogleGenAI({ apiKey: geminiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [prompt],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: INTEL_SCHEMA,
+          temperature: 0.1,
+          topP: 0.1,
+          maxOutputTokens: 1500,
+        }
+      });
+
+      const rawContent = response.text || "{}";
+      const result = safeParseAndValidate(rawContent, items.length);
+      console.log(`[AI Layer] Successfully extracted intel using Native Gemini SDK (free)`);
+      return result;
+    } catch (e) {
+      console.warn("[AI Layer] Native Gemini SDK failed, falling back to OpenRouter:", e);
+    }
+  }
+
+  // 2. Fallback to OpenRouter Multi-Model Chain
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   if (openRouterKey) {
     const enrichedPrompt = `${prompt}\n\nIMPORTANT: Return ONLY valid JSON matching this structure:\n${JSON.stringify(INTEL_SCHEMA, null, 2)}`;
@@ -138,33 +208,6 @@ STRICT INSTRUCTIONS:
         console.warn(`[OpenRouter] Error using model ${model}:`, e);
         continue;
       }
-    }
-  }
-
-  // 2. Try Native Gemini SDK Fallback
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (geminiKey) {
-    try {
-      console.log(`[AI Layer] Attempting extraction with Native Gemini SDK`);
-      const ai = new GoogleGenAI({ apiKey: geminiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [prompt],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: INTEL_SCHEMA,
-          temperature: 0.1,
-          topP: 0.1,
-          maxOutputTokens: 1500,
-        }
-      });
-
-      const rawContent = response.text || "{}";
-      const result = safeParseAndValidate(rawContent, items.length);
-      console.log(`[AI Layer] Successfully extracted intel using Native Gemini SDK`);
-      return result;
-    } catch (e) {
-      console.error("[AI Layer] Native Gemini SDK failed:", e);
     }
   }
 

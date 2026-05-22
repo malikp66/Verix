@@ -27,78 +27,34 @@ function getCachePath(): string {
   }
 }
 
-// ----------------------------
-// 📊 AGGREGATION & PIPELINE
-// ----------------------------
-async function generateCuratedIntelligence(): Promise<any> {
-  const googleNewsUrl = "https://news.google.com/rss/search?q=scam+OR+penipuan+OR+phishing+OR+hoax+indonesia&hl=id&gl=ID&ceid=ID:id";
-  const turnBackHoaxUrl = "https://turnbackhoax.id/feed/";
+const REPORT_CACHE_PATH = path.join(process.cwd(), 'lib', 'report_cache.json');
 
-  console.log("[Intel Pipeline] Fetching news feeds...");
-  
-  const [googleNewsItems, turnBackHoaxItems] = await Promise.all([
-    fetchRSS(googleNewsUrl).then(items => items.map(i => ({ ...i, source: "news.google.com" }))),
-    fetchRSS(turnBackHoaxUrl).then(items => items.map(i => ({ ...i, source: "turnbackhoax.id" })))
-  ]);
-
-  let allRawItems = [...googleNewsItems, ...turnBackHoaxItems];
-  if (allRawItems.length === 0) {
-    console.warn("[Intel Pipeline] No RSS items fetched. Using mock baseline.");
-    return getBaselineMockPayload();
-  }
-
-  // Deduplicate using smart normalization
-  allRawItems = deduplicate(allRawItems);
-
-  // Take top 10 for AI processing
-  const processingItems = allRawItems.slice(0, 10);
-  
-  let enrichedItems: any[] = [];
-  let report: any = null;
-
+function getMonthlyReportCache(): { report: any; month: string } | null {
   try {
-    console.log(`[Intel Pipeline] Triggering AI extraction for ${processingItems.length} items...`);
-    const aiResult = await extractIntelAndReport(processingItems);
-    
-    if (aiResult && aiResult.enriched && aiResult.report) {
-      enrichedItems = processingItems.map((item, idx) => {
-        const aiInfo = aiResult.enriched.find((e: any) => e.index === idx) || fallbackExtract(item.title);
-        return {
-          id: `intel-${crypto.randomUUID()}`,
-          title: item.title,
-          source: item.source,
-          link: item.link,
-          publishedAt: new Date(item.date).toISOString(),
-          type: aiInfo.type,
-          vector: aiInfo.vector,
-          target: aiInfo.target || "General",
-          severity: aiInfo.severity,
-          summary: aiInfo.summary,
-          source_type: "REAL" as const
-        };
-      });
-      report = aiResult.report;
-    } else {
-      throw new Error("Empty or malformed result from AI");
+    if (!fs.existsSync(REPORT_CACHE_PATH)) return null;
+    const cached = JSON.parse(fs.readFileSync(REPORT_CACHE_PATH, 'utf-8'));
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    if (cached.month === currentMonth) {
+      console.log(`[Intel Pipeline] Using monthly cached report (${currentMonth}).`);
+      return cached;
     }
-  } catch (error) {
-    console.warn("[Intel Pipeline] AI extraction failed, running deterministic offline extractor:", error);
-    enrichedItems = processingItems.map(item => {
-      const fallbackInfo = fallbackExtract(item.title);
-      return {
-        id: `intel-${crypto.randomUUID()}`,
-        title: item.title,
-        source: item.source,
-        link: item.link,
-        publishedAt: new Date(item.date).toISOString(),
-        ...fallbackInfo,
-        source_type: "REAL" as const
-      };
-    });
-    report = buildDeterministicReport(enrichedItems);
+    return null;
+  } catch {
+    return null;
   }
+}
 
-  // Generate compatibility fields for Dashboard and Header
+function saveMonthlyReportCache(report: any): void {
+  try {
+    const data = { report, month: new Date().toISOString().slice(0, 7), generatedAt: new Date().toISOString() };
+    fs.writeFileSync(REPORT_CACHE_PATH, JSON.stringify(data, null, 2), 'utf8');
+    console.log('[Intel Pipeline] Monthly report cache saved.');
+  } catch (e) {
+    console.warn('[Intel Pipeline] Failed to save monthly report cache:', e);
+  }
+}
+
+function buildFinalPayload(enrichedItems: any[], report: any) {
   const tickerAlerts = enrichedItems.slice(0, 5).map(item => {
     const icon = item.severity === "CRITICAL" ? "🚨" : item.severity === "HIGH" ? "⚠️" : "🛑";
     return `${icon} Terkini: Modus ${item.type} berkedok ${item.title.slice(0, 60)}... (${item.source})`;
@@ -120,13 +76,10 @@ async function generateCuratedIntelligence(): Promise<any> {
   const dashboardAlerts = enrichedItems.slice(0, 4).map((item, index) => {
     const valueTypes = ["threat", "victims", "new", "cases"];
     const times = ["Baru saja", "5m ago", "12m ago", "20m ago"];
-    
-    // Title limit to max 4 words
     let shortTitle = item.title.split(' ').slice(0, 4).join(' ');
     if (item.target && item.target !== "General" && !shortTitle.toLowerCase().includes(item.target.toLowerCase())) {
       shortTitle = `${item.type} ${item.target}`;
     }
-
     return {
       title: shortTitle,
       changePct: Math.floor(Math.random() * 50) + 15,
@@ -163,6 +116,101 @@ async function generateCuratedIntelligence(): Promise<any> {
     threatPctChange,
     lastSynced: new Date().toISOString()
   };
+}
+
+// ----------------------------
+// 📊 AGGREGATION & PIPELINE
+// ----------------------------
+async function generateCuratedIntelligence(): Promise<any> {
+  const googleNewsUrl = "https://news.google.com/rss/search?q=scam+OR+penipuan+OR+phishing+OR+hoax+indonesia&hl=id&gl=ID&ceid=ID:id";
+  const turnBackHoaxUrl = "https://turnbackhoax.id/feed/";
+  const cissrecUrl = "https://www.cissrec.org/feed/";
+  const bssnUrl = "https://bssn.go.id/feed/";
+
+  console.log("[Intel Pipeline] Fetching news feeds...");
+  
+  const [googleNewsItems, turnBackHoaxItems, cissrecItems, bssnItems] = await Promise.all([
+    fetchRSS(googleNewsUrl).then(items => items.map(i => ({ ...i, source: "news.google.com" }))),
+    fetchRSS(turnBackHoaxUrl).then(items => items.map(i => ({ ...i, source: "turnbackhoax.id" }))),
+    fetchRSS(cissrecUrl).then(items => items.map(i => ({ ...i, source: "cissrec.org" }))),
+    fetchRSS(bssnUrl).then(items => items.map(i => ({ ...i, source: "bssn.go.id" })))
+  ]);
+
+let allRawItems = [...googleNewsItems, ...cissrecItems, ...bssnItems, ...turnBackHoaxItems];
+  const sourceCount = [googleNewsItems.length > 0, cissrecItems.length > 0, bssnItems.length > 0, turnBackHoaxItems.length > 0].filter(Boolean).length;
+  console.log(`[Intel Pipeline] ${allRawItems.length} raw items from ${sourceCount}/4 sources (google:${googleNewsItems.length}, cissrec:${cissrecItems.length}, bssn:${bssnItems.length}, turnbackhoax:${turnBackHoaxItems.length})`);
+
+  if (allRawItems.length === 0) {
+    console.warn("[Intel Pipeline] No RSS items fetched. Using mock baseline.");
+    return getBaselineMockPayload();
+  }
+
+  // Deduplicate using smart normalization
+  allRawItems = deduplicate(allRawItems);
+  console.log(`[Intel Pipeline] ${allRawItems.length} unique items after dedup.`);
+
+  // If very few items, skip AI extraction (save cost) — use deterministic only
+  if (allRawItems.length < 5) {
+    console.warn(`[Intel Pipeline] Only ${allRawItems.length} unique items (insufficient), using deterministic extraction.`);
+    const detItems = allRawItems.map(item => {
+      const fi = fallbackExtract(item.title);
+      return {
+        id: `intel-${crypto.randomUUID()}`, title: item.title, source: item.source, link: item.link,
+        publishedAt: new Date(item.date).toISOString(), ...fi, source_type: "REAL" as const
+      };
+    });
+    return buildFinalPayload(detItems, buildDeterministicReport(detItems));
+  }
+
+  // Take top 10 for AI processing
+  const processingItems = allRawItems.slice(0, 10);
+  
+  let enrichedItems: any[] = [];
+  let report: any = null;
+
+  // === MONTHLY REPORT CACHE ===
+  const monthlyCache = getMonthlyReportCache();
+
+  try {
+    console.log(`[Intel Pipeline] Triggering AI extraction for ${processingItems.length} items...`);
+    const aiResult = await extractIntelAndReport(processingItems);
+    
+    if (aiResult && aiResult.enriched) {
+      enrichedItems = processingItems.map((item, idx) => {
+        const aiInfo = aiResult.enriched.find((e: any) => e.index === idx) || fallbackExtract(item.title);
+        return {
+          id: `intel-${crypto.randomUUID()}`, title: item.title, source: item.source, link: item.link,
+          publishedAt: new Date(item.date).toISOString(), type: aiInfo.type, vector: aiInfo.vector,
+          target: aiInfo.target || "General", severity: aiInfo.severity, summary: aiInfo.summary,
+          source_type: "REAL" as const
+        };
+      });
+    } else {
+      throw new Error("Empty or malformed result from AI");
+    }
+
+    // Use monthly cached report if available, otherwise save the new one
+    if (monthlyCache) {
+      report = monthlyCache.report;
+    } else if (aiResult.report) {
+      report = aiResult.report;
+      saveMonthlyReportCache(report);
+    } else {
+      report = buildDeterministicReport(enrichedItems);
+    }
+  } catch (error) {
+    console.warn("[Intel Pipeline] AI extraction failed, running deterministic offline extractor:", error);
+    enrichedItems = processingItems.map(item => {
+      const fi = fallbackExtract(item.title);
+      return {
+        id: `intel-${crypto.randomUUID()}`, title: item.title, source: item.source, link: item.link,
+        publishedAt: new Date(item.date).toISOString(), ...fi, source_type: "REAL" as const
+      };
+    });
+    report = monthlyCache ? monthlyCache.report : buildDeterministicReport(enrichedItems);
+  }
+
+  return buildFinalPayload(enrichedItems, report);
 }
 
 // ----------------------------
@@ -260,14 +308,18 @@ export async function GET() {
   // 1. Fresh Hit (less than 5 mins old)
   if (cachedData && age < CACHE_REVALIDATE_TTL) {
     console.log(`[SWR Cache] Fresh hit! serving cache (${Math.round(age / 1000)}s old).`);
-    return NextResponse.json(cachedData);
+    return NextResponse.json(cachedData, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' }
+    });
   }
 
   // 2. Stale hit (5 to 30 mins old) - serve immediately and trigger background refresh
   if (cachedData && age < CACHE_EXPIRATION_TTL) {
     console.log(`[SWR Cache] Stale hit! serving cache (${Math.round(age / 60000)}m old) & triggering revalidation.`);
     triggerBackgroundRebuild().catch(e => console.error("[SWR Cache] Background rebuild trigger failed:", e));
-    return NextResponse.json(cachedData);
+    return NextResponse.json(cachedData, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' }
+    });
   }
 
   // 3. Cache expired or missing - blocking refresh
@@ -283,12 +335,18 @@ export async function GET() {
       memoryLastFetched = now;
     }
 
-    return NextResponse.json(freshData);
+    return NextResponse.json(freshData, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' }
+    });
   } catch (err) {
     console.error("[SWR Cache] Blocking refresh failed, serving stale cache or mock:", err);
     if (cachedData) {
-      return NextResponse.json(cachedData);
+      return NextResponse.json(cachedData, {
+        headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' }
+      });
     }
-    return NextResponse.json(getBaselineMockPayload());
+    return NextResponse.json(getBaselineMockPayload(), {
+      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' }
+    });
   }
 }

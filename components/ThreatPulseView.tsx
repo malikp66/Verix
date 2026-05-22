@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { IndonesiaMap } from './ui/IndonesiaMap';
+import { LinearGlow } from './ui/linear-glow';
 import { 
   Activity, 
   TrendingUp, 
@@ -13,6 +14,7 @@ import {
   Zap, 
   ShieldCheck, 
   ChevronRight, 
+  ArrowRight,
   Info,
   Server,
   RefreshCw,
@@ -25,6 +27,7 @@ import {
 } from 'lucide-react';
 import { ThreatItem, ThreatInsights, generateSingleLiveThreat, buildInsights } from '@/lib/threatFeeds';
 import { useIntel } from './IntelligenceProvider';
+import { cn } from '@/lib/utils';
 
 // Coordinates index for stable ID jitter mapping
 const REGION_COORDS: Record<string, [number, number]> = {
@@ -149,14 +152,13 @@ export function ThreatPulseView() {
   // Filters state
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState("ALL");
-  const [sourceTypeFilter, setSourceTypeFilter] = useState("ALL");
   const [activeReportTab, setActiveReportTab] = useState<'status' | 'trends' | 'actions'>('status');
   const [isReportExpanded, setIsReportExpanded] = useState(false);
   const [visibleCount, setVisibleCount] = useState(15);
 
   useEffect(() => {
     setVisibleCount(15);
-  }, [searchQuery, severityFilter, sourceTypeFilter]);
+  }, [searchQuery, severityFilter]);
 
   const fetchThreatData = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -241,26 +243,11 @@ export function ThreatPulseView() {
     }
   }, [intel]);
 
-  // Live Auto-streaming simulated feeds
-  useEffect(() => {
-    if (loading) return;
-    
-    const streamInterval = setInterval(() => {
-      const newThreat = {
-        ...generateSingleLiveThreat(),
-        source_type: "SIMULATED" as const
-      };
-      
-      setThreats((prev) => {
-        const nextThreats = [newThreat, ...prev].slice(0, 100);
-        const newInsights = buildInsights(nextThreats);
-        setInsights(newInsights);
-        return nextThreats;
-      });
-    }, 15000); // Prepend a new live simulated threat every 15 seconds
-    
-    return () => clearInterval(streamInterval);
-  }, [loading]);
+  // Live Auto-streaming removed - only real data from API/intel
+
+  const handleRefresh = async () => {
+    await fetchThreatData(true);
+  };
 
   // Format Relative Time Helper
   const getRelativeTime = (timestampStr: string) => {
@@ -285,8 +272,7 @@ export function ThreatPulseView() {
     const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           (t.target_brand && t.target_brand.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesSeverity = severityFilter === "ALL" || t.severity === severityFilter;
-    const matchesSourceType = sourceTypeFilter === "ALL" || t.source_type === sourceTypeFilter;
-    return matchesSearch && matchesSeverity && matchesSourceType;
+    return matchesSearch && matchesSeverity;
   });
 
   const paginatedThreats = filteredThreats.slice(0, visibleCount);
@@ -320,13 +306,19 @@ export function ThreatPulseView() {
   };
 
   return (
-    <div className="flex-1 w-full flex flex-col relative overflow-hidden bg-[#0A0A0A] text-white">
+    <div className="flex-1 w-full flex flex-col relative overflow-hidden bg-neutral-950 text-white">
+      {/* Linear glow top */}
+      <LinearGlow position="top" color="emerald" opacity={30} />
+      
+      {/* Ambient glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-emerald-500/[0.02] blur-[120px] rounded-full pointer-events-none" />
+
       {/* Cinematic Background Gradients */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(8,30,55,0.15)_0%,_rgba(10,10,10,0.95)_70%,_#0A0A0A_100%)] pointer-events-none" />
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#111_1px,transparent_1px),linear-gradient(to_bottom,#111_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none opacity-[0.05]" />
 
       {/* SECTION 1: HERO INTELLIGENCE SECTION */}
-      <div className="relative z-10 px-6 md:px-8 pt-8 pb-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 border-b border-neutral-900/60 bg-[#0A0A0A]/40 backdrop-blur-md">
+      <div className="relative z-10 px-6 md:px-8 pt-8 pb-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 border-b border-neutral-900/60 bg-neutral-950/40 backdrop-blur-md">
         <div className="flex flex-col gap-1 max-w-2xl">
           <div className="flex items-center gap-2 text-emerald-400 font-mono text-[10px] tracking-[0.2em] font-semibold mb-1">
             <Activity className="w-3.5 h-3.5 animate-pulse text-emerald-500" />
@@ -794,16 +786,20 @@ export function ThreatPulseView() {
               {/* Threat Story Attack Graph Flowchart */}
               <div className="flex flex-col gap-2.5">
                 <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">Attack Flow / Threat Story:</span>
-                <div className="flex flex-wrap items-center gap-2 bg-neutral-900/60 border border-neutral-950 p-4 rounded-xl">
+                <div className="flex flex-row flex-wrap items-center gap-1.5 bg-neutral-900/40 border border-neutral-800/50 rounded-xl p-5">
+                  
                   {CAMPAIGN_FLOWS[selectedCampaignTab].steps.map((step, sIdx) => (
-                    <div key={sIdx} className="flex items-center gap-2">
-                      <div className="bg-[#141414] border border-neutral-800 text-xs px-3 py-1.5 rounded-lg text-neutral-300 font-mono shadow">
-                        {step}
+                    <Fragment key={sIdx}>
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-900/60 border border-neutral-800/60 hover:border-emerald-500/30 transition-colors">
+                        <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.4)]">
+                          <span className="text-[9px] font-mono font-bold text-neutral-950">{sIdx + 1}</span>
+                        </div>
+                        <span className="text-xs font-medium text-neutral-200">{step}</span>
                       </div>
                       {sIdx < CAMPAIGN_FLOWS[selectedCampaignTab].steps.length - 1 && (
-                        <ChevronRight className="w-4 h-4 text-emerald-500/70" />
+                        <ArrowRight className="w-4 h-4 text-emerald-500/40 shrink-0" />
                       )}
-                    </div>
+                    </Fragment>
                   ))}
                 </div>
               </div>
@@ -830,7 +826,7 @@ export function ThreatPulseView() {
       </div>
 
       {/* SECTION 5: CINEMATIC THREAT TIMELINE */}
-      <div className="border-t border-neutral-900/60 bg-[#0A0A0A] px-6 md:px-8 py-8 relative z-10 flex flex-col min-h-[500px]">
+      <div className="border-t border-neutral-900/60 bg-neutral-950 px-6 md:px-8 py-8 relative z-10 flex flex-col min-h-[500px]">
         {/* Header with Live Pulse Dot */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-4 border-b border-neutral-900">
           <div className="flex flex-col gap-1">
@@ -847,49 +843,44 @@ export function ThreatPulseView() {
             </p>
           </div>
 
-          {/* Interactive Filters Row */}
-          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
-            {/* Search */}
+          {/* Magic UI Filter Bar */}
+          <div className="flex items-center gap-2 bg-neutral-900/40 backdrop-blur-md border border-neutral-800/60 rounded-full px-2 py-1.5">
+            {/* Search pill */}
             <div className="relative flex-1 md:flex-none">
               <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search brand/tactic..."
+                placeholder="Cari brand/taktik..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-[#0B0B0C]/70 backdrop-blur-md border border-neutral-850 hover:border-emerald-500/30 text-xs text-white placeholder-neutral-500 pl-9 pr-4 py-1.5 rounded-lg focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 w-full md:w-44 transition-all duration-300 font-mono"
+                className="bg-transparent text-xs text-white placeholder-neutral-500 pl-8 pr-3 py-1.5 w-full md:w-40 focus:outline-none font-mono"
               />
             </div>
 
+            {/* Divider */}
+            <div className="w-px h-5 bg-neutral-800 hidden md:block" />
+
             {/* Severity Filter */}
-            <div className="relative">
+            <div className="relative hidden md:block">
               <select
                 value={severityFilter}
                 onChange={(e) => setSeverityFilter(e.target.value)}
-                className="appearance-none bg-[#0B0B0C]/70 backdrop-blur-md border border-neutral-850 hover:border-emerald-500/30 text-xs text-neutral-300 pl-3 pr-8 py-1.5 rounded-lg focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all duration-300 cursor-pointer font-mono"
+                className="appearance-none bg-transparent text-xs text-neutral-200 pl-3 pr-7 py-1.5 cursor-pointer font-mono focus:outline-none"
               >
-                <option value="ALL">Severity: ALL</option>
-                <option value="CRITICAL">CRITICAL</option>
-                <option value="HIGH">HIGH</option>
-                <option value="MEDIUM">MEDIUM</option>
-                <option value="LOW">LOW</option>
+                <option value="ALL">Semua Severity</option>
+                <option value="CRITICAL">🔴 CRITICAL</option>
+                <option value="HIGH">🟠 HIGH</option>
+                <option value="MEDIUM">🟡 MEDIUM</option>
+                <option value="LOW">🟢 LOW</option>
               </select>
-              <ChevronDown className="w-3 h-3 text-neutral-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-3 h-3 text-emerald-400/50 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
-
-            {/* Source Type Filter */}
-            <div className="relative">
-              <select
-                value={sourceTypeFilter}
-                onChange={(e) => setSourceTypeFilter(e.target.value)}
-                className="appearance-none bg-[#0B0B0C]/70 backdrop-blur-md border border-neutral-850 hover:border-emerald-500/30 text-xs text-neutral-300 pl-3 pr-8 py-1.5 rounded-lg focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all duration-300 cursor-pointer font-mono"
-              >
-                <option value="ALL">Source: ALL</option>
-                <option value="REAL">REAL DATA</option>
-                <option value="SIMULATED">SIMULATED</option>
-              </select>
-              <ChevronDown className="w-3 h-3 text-neutral-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
+          </div>
+          
+          {/* Active filter count */}
+          <div className="text-[10px] font-mono text-neutral-500 flex items-center gap-1.5">
+            <span className="w-1 h-1 rounded-full bg-emerald-500" />
+            <span>{filteredThreats.length} ancaman</span>
           </div>
         </div>
 

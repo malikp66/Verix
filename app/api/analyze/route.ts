@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { Type, Schema } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 import { calculateThreatScore } from "@/lib/threatEngine";
 import { recordScanEvent } from "@/lib/scanMetrics";
@@ -284,25 +284,45 @@ export async function POST(req: NextRequest) {
 
     const { text, image, metadata } = await req.json();
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
 
-    // 1. OCR Preprocessing (if image provided)
+    // 1. OCR Preprocessing (if image provided) via OpenRouter Vision
     let ocrText = "";
-    if (image && ai) {
+    if (image && openRouterKey) {
       try {
-        const ocrResponse = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: [
-            image,
-            "Extract all text, messages, names, and links from this image. Output the raw text directly. Do not explain, summarize or add markdown formatting."
-          ],
-          config: {
-            temperature: 0,
-            topP: 0.1,
+        // Convert inlineData to data URL for OpenRouter
+        const imageDataUrl = image.inlineData 
+          ? `data:${image.inlineData.mimeType};base64,${image.inlineData.data}`
+          : null;
+        
+        if (imageDataUrl) {
+          const ocrRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${openRouterKey}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": process.env.APP_URL || "https://verix.id",
+              "X-Title": "VERIX Threat Analysis"
+            },
+            body: JSON.stringify({
+              model: "mistralai/pixtral-large-latest",
+              messages: [{
+                role: "user",
+                content: [
+                  { type: "image_url", image_url: { url: imageDataUrl } },
+                  { type: "text", text: "Extract all text, messages, names, and links from this image. Output the raw text directly. Do not explain, summarize or add markdown formatting." }
+                ]
+              }]
+            })
+          });
+          
+          if (ocrRes.ok) {
+            const ocrData = await ocrRes.json();
+            ocrText = ocrData.choices?.[0]?.message?.content || "";
+          } else {
+            console.warn("OpenRouter OCR failed:", await ocrRes.text());
           }
-        });
-        ocrText = ocrResponse.text || "";
+        }
       } catch (ocrErr) {
         console.error("OCR preprocessing failed:", ocrErr);
       }

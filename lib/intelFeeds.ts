@@ -61,18 +61,37 @@ export function parseRss(xml: string, limit = 8): { title: string; link: string;
   return items;
 }
 
-export async function fetchRSS(url: string): Promise<{ title: string; link: string; date: string }[]> {
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) VERIX RSS Feed Fetcher" }
-    });
-    if (!res.ok) throw new Error(`RSS fetch returned status ${res.status}`);
-    const text = await res.text();
-    return parseRss(text, 10);
-  } catch (e) {
-    console.error(`[RSS Fetcher] Failed for ${url}:`, e);
-    return [];
+export async function fetchRSS(url: string, retries = 3): Promise<{ title: string; link: string; date: string }[]> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      
+      const res = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) VERIX RSS Feed Fetcher" },
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeout);
+      
+      if (!res.ok) {
+        console.warn(`[RSS Fetcher] Attempt ${attempt}/${retries} failed for ${url}: status ${res.status}`);
+        if (attempt === retries) break;
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+        continue;
+      }
+      
+      const text = await res.text();
+      return parseRss(text, 10);
+    } catch (e) {
+      console.warn(`[RSS Fetcher] Attempt ${attempt}/${retries} error for ${url}:`, e);
+      if (attempt === retries) break;
+      await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
   }
+  
+  console.error(`[RSS Fetcher] All ${retries} attempts failed for ${url}. Returning empty.`);
+  return [];
 }
 
 // ----------------------------

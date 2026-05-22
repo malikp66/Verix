@@ -24,13 +24,13 @@ export function IntelligenceProvider({ children }: { children: React.ReactNode }
 
     fetchIntel();
     
-    // Polling interval of 90s (visibility-aware) keeps costs absolute zero
-    // while maintaining a fresh experience when active.
+    // Polling interval of 5 minutes — intel data changes slowly,
+    // and the server-side SWR cache handles freshness transparently.
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') {
         fetchIntel();
       }
-    }, 90000); 
+    }, 300000); 
     
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isMounted) {
