@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, ChevronDown, Menu, X, Sparkles } from 'lucide-react';
+import { LinearGlow } from './ui/linear-glow';
 import { useIntel } from './IntelligenceProvider';
 import { useAuth } from './FirebaseProvider';
 import { useAICredits } from '@/hooks/use-ai-credits';
@@ -36,7 +37,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
 
   return (
     <>
-      <header className={`sticky top-0 z-50 w-full flex flex-col transition-all duration-300 ${scrolled ? 'bg-neutral-950/80 backdrop-blur-xl border-b border-neutral-800 shadow-[0_4px_30px_rgba(0,0,0,0.5)]' : 'bg-transparent'}`}>
+      <header className={`sticky top-0 z-50 w-full flex flex-col transition-all duration-300 ${scrolled ? 'bg-neutral-950/80 backdrop-blur-xl border-b border-neutral-800 shadow-[0_4px_30px_rgba(0,0,0,0.5)]' : 'bg-transparent'} relative`}>
         {/* Layer 1: Live Threat Ticker */}
         <div className={`w-full overflow-hidden flex items-center border-b border-neutral-800/50 bg-neutral-950/60 transition-all duration-300 ${scrolled ? 'h-8 opacity-80' : 'h-10 opacity-100'}`}>
           <div className="flex items-center gap-2 shrink-0 px-4 md:px-6 z-20 border-r border-neutral-800/80 h-full bg-neutral-900/50 glass">
@@ -183,6 +184,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
             </button>
           </div>
         </div>
+        <LinearGlow position="bottom" color="emerald" opacity={20} />
       </header>
 
       {/* Layer 3: Mobile Sidebar Navigation */}
