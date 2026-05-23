@@ -64,15 +64,13 @@ export function parseRss(xml: string, limit = 8): { title: string; link: string;
 export async function fetchRSS(url: string, retries = 3): Promise<{ title: string; link: string; date: string }[]> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
-      
       const res = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) VERIX RSS Feed Fetcher" },
-        signal: controller.signal,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          "Accept": "application/rss+xml, application/xml, text/xml, text/html;q=0.9",
+        },
+        signal: AbortSignal.timeout(8000),
       });
-      
-      clearTimeout(timeout);
       
       if (!res.ok) {
         console.warn(`[RSS Fetcher] Attempt ${attempt}/${retries} failed for ${url}: status ${res.status}`);

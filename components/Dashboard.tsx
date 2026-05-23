@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, ShieldAlert, Zap, Lock, Smartphone, FileWarning, Eye, UploadCloud, Search, AlertCircle, BarChart3, Users, MessageSquare, Link2, Radar, MessageCircle, Image as ImageIcon, ShoppingBag, Mic, CreditCard, Shield } from 'lucide-react';
 import { LightRays } from './ui/light-rays';
 import React, { useState, useEffect } from 'react';
@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useAuth } from './FirebaseProvider';
 import { IndonesiaMap } from './ui/IndonesiaMap';
+import { ThreatStatsSection } from './ThreatStatsSection';
 
 // Premium UI Primitives
 import { Spotlight } from './ui/Spotlight';
@@ -16,6 +17,8 @@ import { Meteors } from './ui/Meteors';
 import { AuroraBackground } from './ui/AuroraBackground';
 import { AnimatedBeam } from './ui/AnimatedBeam';
 import { ShineCard, ShineCardContainer } from './ui/ShineCard';
+import { RotatingWords } from './ui/RotatingWords';
+import { ScrollVelocityContainer, ScrollVelocityRow } from './ui/scroll-based-velocity';
 
 // Coordinates index for stable ID jitter mapping
 const REGION_COORDS: Record<string, [number, number]> = {
@@ -146,10 +149,14 @@ function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
-            className="text-5xl sm:text-6xl md:text-8xl font-display font-medium tracking-tight mb-8 max-w-6xl leading-[1.05]"
+            className="text-5xl sm:text-6xl md:text-8xl font-display font-medium tracking-tight mb-8 max-w-6xl leading-[1.2]"
           >
-            Deteksi Penipuan <br className="hidden md:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-neutral-500">Sebelum Mereka Mendeteksi Anda.</span>
+            <div className="flex flex-row gap-8">
+              <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-neutral-500">Deteksi</span>
+              {/* <br className="hidden md:block" /> */}
+              <RotatingWords words={["Link Phishing", "Foto Deepfake", "APK Berbahaya", "QRIS Palsu", "Penipuan WA"]} />
+            </div>
+            <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-neutral-500">Sebelum Terlambat.</span>
           </motion.h1>
 
           <motion.p
@@ -158,7 +165,7 @@ function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
             className="text-lg md:text-xl text-neutral-400 max-w-3xl mb-14 leading-relaxed font-light"
           >
-            VERIX menggabungkan AI dan sistem keamanan nyata untuk melindungi Anda dari phishing, penipuan, dan ancaman digital secara real-time.
+            Analisis ancaman digital berbasis AI & intelijen nyata secara real-time.
           </motion.p>
 
           <motion.div
@@ -191,10 +198,6 @@ function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
         </div>
       </AuroraBackground>
 
-      {/* LiveScamRadar at the bottom sharing video bg */}
-      <div className="w-full relative z-20">
-        <LiveScamRadar />
-      </div>
     </section>
   );
 }
@@ -215,168 +218,6 @@ function getRelativeTime(dateStr: string) {
   } catch (e) {
     return 'Baru saja';
   }
-}
-
-const getSourceLabel = (src: string) => {
-  if (src.includes('turnbackhoax')) return 'TurnBackHoax';
-  if (src.includes('google')) return 'Google News';
-  if (src.includes('kominfo')) return 'Kominfo';
-  return src;
-};
-
-function LiveScamRadar() {
-  const intel = useIntel();
-
-  const fallbackAlerts = [
-    {
-      title: 'Phishing BCA Mobile Clone Menyasar Nasabah',
-      source: 'turnbackhoax.id',
-      link: 'https://turnbackhoax.id/?s=bca',
-      severity: 'critical',
-      time: '5m ago',
-      type: 'Phishing'
-    },
-    {
-      title: 'Penyebaran APK Undangan Pernikahan Palsu di WA',
-      source: 'kominfo.go.id',
-      link: 'https://www.kominfo.go.id',
-      severity: 'danger',
-      time: '12m ago',
-      type: 'APK Malware'
-    },
-    {
-      title: 'Voice Cloning (Deepfake) Modus Minta Uang',
-      source: 'turnbackhoax.id',
-      link: 'https://turnbackhoax.id/?s=deepfake',
-      severity: 'warning',
-      time: '25m ago',
-      type: 'Social Engineering'
-    },
-    {
-      title: 'Penipuan Lowongan Kerja Like & Share Telegram',
-      source: 'news.google.com',
-      link: 'https://news.google.com',
-      severity: 'warning',
-      time: '40m ago',
-      type: 'Job Scam'
-    },
-    {
-      title: 'Situs Palsu Donasi Masjid Raya QRIS Palsu',
-      source: 'turnbackhoax.id',
-      link: 'https://turnbackhoax.id/?s=qris',
-      severity: 'critical',
-      time: '1h ago',
-      type: 'QRIS Manipulation'
-    }
-  ];
-
-  let alerts = fallbackAlerts;
-
-  if (intel?.data && intel.data.length > 0) {
-    alerts = intel.data.map((item: any) => {
-      let severity = 'warning';
-      if (item.severity === 'CRITICAL') severity = 'critical';
-      else if (item.severity === 'HIGH') severity = 'danger';
-      else if (item.severity === 'MEDIUM') severity = 'warning';
-      else severity = 'info';
-
-      return {
-        title: item.title,
-        source: item.source || 'news.google.com',
-        link: item.link || '#',
-        severity,
-        time: getRelativeTime(item.publishedAt),
-        type: item.type || 'Threat'
-      };
-    });
-  }
-
-  const doubledAlerts = [...alerts, ...alerts];
-
-  return (
-    <div className="py-6 bg-neutral-950/20 backdrop-blur-md border-t border-neutral-800/40 relative z-20 overflow-hidden w-full">
-      <div className="w-full overflow-hidden relative flex items-center h-full">
-        {/* Progressive blur overlays */}
-        <div
-          className="absolute left-0 top-0 bottom-0 w-16 sm:w-36 pointer-events-none z-30"
-          style={{
-            backdropFilter: 'blur(8px)',
-            maskImage: 'linear-gradient(to right, rgba(0,0,0,1), rgba(0,0,0,0))',
-            WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,1), rgba(0,0,0,0))'
-          }}
-        />
-        <div
-          className="absolute right-0 top-0 bottom-0 w-16 sm:w-36 pointer-events-none z-30"
-          style={{
-            backdropFilter: 'blur(8px)',
-            maskImage: 'linear-gradient(to left, rgba(0,0,0,1), rgba(0,0,0,0))',
-            WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,1), rgba(0,0,0,0))'
-          }}
-        />
-
-        {/* Scrolling Ticker view */}
-        <div
-          className="w-full overflow-hidden relative flex items-center"
-          style={{
-            maskImage: 'linear-gradient(to right, transparent, black 8%, black 92%, transparent)',
-            WebkitMaskImage: 'linear-gradient(to right, transparent, black 8%, black 92%, transparent)'
-          }}
-        >
-          <div className="flex gap-4 w-max animate-marquee hover-pause py-2 px-6">
-            {doubledAlerts.map((alert: any, i: number) => (
-              <a
-                key={i}
-                href={alert.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-shrink-0 flex items-center gap-4 bg-neutral-900/50 backdrop-blur-sm border border-neutral-800/80 hover:border-neutral-700/80 hover:bg-neutral-800/60 rounded-xl px-5 py-3 transition-all duration-300 group shadow-md relative z-20"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-neutral-950 border border-neutral-800 group-hover:border-neutral-700 transition-colors">
-                    {alert.severity === 'critical' ? (
-                      <ShieldAlert className="w-4 h-4 text-red-500 animate-pulse" />
-                    ) : alert.severity === 'danger' ? (
-                      <FileWarning className="w-4 h-4 text-amber-500" />
-                    ) : alert.severity === 'warning' ? (
-                      <AlertCircle className="w-4 h-4 text-yellow-500" />
-                    ) : (
-                      <Radar className="w-4 h-4 text-blue-500" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[9px] font-mono bg-neutral-950 border border-neutral-800 px-2 py-0.5 rounded text-neutral-400 uppercase tracking-wider">
-                        {alert.type}
-                      </span>
-                      <span className={`text-[9px] font-mono px-2 py-0.5 rounded border ${alert.source.includes('turnbackhoax')
-                        ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                        : alert.source.includes('kominfo')
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                        }`}>
-                        {getSourceLabel(alert.source)}
-                      </span>
-                    </div>
-                    <p className="text-sm font-medium text-neutral-200 group-hover:text-white transition-colors max-w-[280px] sm:max-w-[320px] truncate">
-                      {alert.title}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-1 border-l border-neutral-800/60 pl-4 h-full justify-center">
-                  <span className="text-[10px] font-mono text-neutral-500">
-                    {alert.time}
-                  </span>
-                  <span className="text-[9px] font-mono text-emerald-400 flex items-center gap-0.5 group-hover:underline">
-                    BUKA <ArrowRight className="w-2.5 h-2.5" />
-                  </span>
-                </div>
-              </a>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function BentoGrid() {
@@ -473,7 +314,7 @@ function BentoGrid() {
         </div>
 
         {/* 3. Cybersecurity Reports */}
-        <ShineCardContainer className="col-span-1 md:col-span-1 min-h-[380px]">
+        {/* <ShineCardContainer className="col-span-1 md:col-span-1 min-h-[380px]">
           <ShineCard glowColor="rgba(16, 185, 129, 0.1)">
             <div className="flex flex-col h-full justify-between">
               <div>
@@ -496,10 +337,10 @@ function BentoGrid() {
               </p>
             </div>
           </ShineCard>
-        </ShineCardContainer>
+        </ShineCardContainer> */}
 
         {/* 4. AI-Powered Explanation */}
-        <div className="group relative rounded-3xl border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800/85 transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden md:col-span-2 min-h-[380px]">
+        {/* <div className="group relative rounded-3xl border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800/85 transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden md:col-span-2 min-h-[380px]">
           <Spotlight fill="rgba(59, 130, 246, 0.12)" />
           <div className="relative z-10 flex flex-col h-full justify-between gap-6">
             <div>
@@ -517,31 +358,26 @@ function BentoGrid() {
               </ul>
             </div>
 
-            {/* Floating AI Model Bubbles */}
             <div className="absolute right-6 top-1/2 -translate-y-1/2 w-[140px] h-[160px] pointer-events-none">
               <div className="relative w-full h-full">
-                {/* DeepSeek V3 — Top Left */}
                 <div
                   className="absolute left-0 top-2 w-10 h-10 rounded-full bg-neutral-800/40 backdrop-blur-sm border border-neutral-700/30 flex items-center justify-center shadow-[0_0_14px_rgba(59,130,246,0.18)] animate-[float-bubble-1_6s_ease-in-out_infinite]"
                   style={{ animationDelay: '0s' }}
                 >
                   <Image src="/logos/deepseek.svg" width={18} height={18} alt="DeepSeek" />
                 </div>
-                {/* Pixtral Large — Top Right */}
                 <div
                   className="absolute right-0 top-0 w-10 h-10 rounded-full bg-neutral-800/40 backdrop-blur-sm border border-neutral-700/30 flex items-center justify-center shadow-[0_0_14px_rgba(168,85,247,0.18)] animate-[float-bubble-2_5s_ease-in-out_infinite]"
                   style={{ animationDelay: '0.5s' }}
                 >
                   <Image src="/logos/mistral.svg" width={18} height={18} alt="Pixtral" />
                 </div>
-                {/* Qwen 2.5 VL — Bottom Left */}
                 <div
                   className="absolute left-2 bottom-2 w-10 h-10 rounded-full bg-neutral-800/40 backdrop-blur-sm border border-neutral-700/30 flex items-center justify-center shadow-[0_0_14px_rgba(16,185,129,0.18)] animate-[float-bubble-3_7s_ease-in-out_infinite]"
                   style={{ animationDelay: '1s' }}
                 >
                   <Image src="/logos/qwen.svg" width={18} height={18} alt="Qwen" />
                 </div>
-                {/* Gemini Vision — Bottom Right (Larger) */}
                 <div
                   className="absolute right-2 bottom-0 w-14 h-14 rounded-full bg-neutral-800/60 backdrop-blur-md border-2 border-amber-500/25 flex items-center justify-center shadow-[0_0_24px_rgba(245,158,11,0.25)] animate-[float-bubble-gemini_8s_ease-in-out_infinite]"
                   style={{ animationDelay: '1.5s' }}
@@ -555,16 +391,45 @@ function BentoGrid() {
               "Dari ‘ini scam’ → jadi ‘ini kenapa scam’."
             </p>
           </div>
-        </div>
+        </div> */}
 
-        {/* 5. WhatsApp Security Assistant */}
+        {/* 6. Browser Extension (Coming Soon) */}
+        <ShineCardContainer className="col-span-1 md:col-span-1 min-h-[380px] opacity-40 grayscale pointer-events-none select-none relative">
+          <ShineCard glowColor="rgba(59, 130, 246, 0.05)">
+            <div className="flex flex-col h-full justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center">
+                    <Link2 className="w-5 h-5 text-blue-400/60" />
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] font-mono text-blue-400 font-medium">Segera Hadir</span>
+                </div>
+                <span className="text-xs font-mono text-blue-400/60 uppercase tracking-widest font-semibold">03. EKSTENSI</span>
+                <h3 className="text-xl font-display font-medium text-white/60 tracking-tight mt-2 mb-2">Ekstensi Browser</h3>
+                <p className="text-neutral-500 text-xs mb-4">"Perlindungan, di mana pun Anda menjelajah."</p>
+                <ul className="space-y-1.5 text-neutral-600 text-[11px]">
+                  <li className="flex items-center gap-1">✓ Deteksi phishing saat browsing</li>
+                  <li className="flex items-center gap-1">✓ Peringatan real-time sebelum klik link</li>
+                  <li className="flex items-center gap-1">✓ Integrasi langsung dengan engine VERIX</li>
+                  <li className="flex items-center gap-1">✓ Ringan & mengutamakan privasi</li>
+                </ul>
+              </div>
+
+              <p className="text-[10px] text-neutral-700 font-mono italic mt-6">
+                "Jangan tunggu kena dulu baru sadar."
+              </p>
+            </div>
+          </ShineCard>
+        </ShineCardContainer>
+
+        {/* 4. WhatsApp Security Assistant */}
         <div className="group relative rounded-3xl border border-neutral-800/80 bg-neutral-900 hover:bg-neutral-800/85 transition-all duration-500 p-8 flex flex-col justify-between overflow-hidden md:col-span-2 min-h-[380px]">
           <div className="relative z-10 flex flex-col h-full justify-between gap-6">
             <div>
               <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center mb-6">
                 <MessageSquare className="w-5 h-5 text-purple-400" />
               </div>
-              <span className="text-xs font-mono text-purple-400 uppercase tracking-widest font-semibold">05. BOT PESAN</span>
+              <span className="text-xs font-mono text-purple-400 uppercase tracking-widest font-semibold">04. BOT PESAN</span>
               <h3 className="text-2xl font-display font-medium text-white tracking-tight mt-2 mb-3">Asisten Keamanan WhatsApp</h3>
               <p className="text-neutral-400 text-sm mb-4">"Teruskan. Pindai. Tetap aman."</p>
               <ul className="space-y-2 text-neutral-500 text-xs">
@@ -585,35 +450,6 @@ function BentoGrid() {
             </p>
           </div>
         </div>
-
-        {/* 6. Browser Extension (Coming Soon) */}
-        <ShineCardContainer className="col-span-1 md:col-span-1 min-h-[380px] opacity-40 grayscale pointer-events-none select-none relative">
-          <ShineCard glowColor="rgba(59, 130, 246, 0.05)">
-            <div className="flex flex-col h-full justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-6">
-                  <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center">
-                    <Link2 className="w-5 h-5 text-blue-400/60" />
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] font-mono text-blue-400 font-medium">Segera Hadir</span>
-                </div>
-                <span className="text-xs font-mono text-blue-400/60 uppercase tracking-widest font-semibold">06. EKSTENSI</span>
-                <h3 className="text-xl font-display font-medium text-white/60 tracking-tight mt-2 mb-2">Ekstensi Browser</h3>
-                <p className="text-neutral-500 text-xs mb-4">"Perlindungan, di mana pun Anda menjelajah."</p>
-                <ul className="space-y-1.5 text-neutral-600 text-[11px]">
-                  <li className="flex items-center gap-1">✓ Deteksi phishing saat browsing</li>
-                  <li className="flex items-center gap-1">✓ Peringatan real-time sebelum klik link</li>
-                  <li className="flex items-center gap-1">✓ Integrasi langsung dengan engine VERIX</li>
-                  <li className="flex items-center gap-1">✓ Ringan & mengutamakan privasi</li>
-                </ul>
-              </div>
-
-              <p className="text-[10px] text-neutral-700 font-mono italic mt-6">
-                "Jangan tunggu kena dulu baru sadar."
-              </p>
-            </div>
-          </ShineCard>
-        </ShineCardContainer>
 
       </div>
     </section>
@@ -987,7 +823,6 @@ function IntelligenceEcosystem() {
     virusTotal: 14592,
     safeBrowsing: 4102,
     geminiVision: 9341,
-    turnBackHoax: 156,
     urlScan: 5120,
     newsApi: 2401
   };
@@ -1030,18 +865,6 @@ function IntelligenceEcosystem() {
       items: ['Tangkapan layar palsu', 'Manipulasi QR', 'Pemalsuan visual']
     },
     {
-      name: 'TurnBackHoax',
-      purpose: 'Verifikasi hoaks Indonesia',
-      status: 'Feed Langsung',
-      icon: FileWarning,
-      color: 'text-amber-400',
-      bg: 'bg-amber-400/10',
-      border: 'border-amber-400/20',
-      stats: stats.turnBackHoax.toLocaleString(),
-      statLabel: 'Laporan aktif',
-      items: ['Hoaks Indonesia', 'Misinformasi', 'Berita palsu viral']
-    },
-    {
       name: 'URLScan',
       purpose: 'Analisis domain mencurigakan',
       status: 'Terhubung',
@@ -1068,7 +891,7 @@ function IntelligenceEcosystem() {
   ];
 
   return (
-    <section className="py-32 bg-neutral-950 border-y border-neutral-800/50 relative overflow-hidden">
+    <section className="py-16 md:py-32 bg-neutral-950 border-y border-neutral-800/50 relative overflow-hidden">
       <div className="absolute inset-0 bg-[linear-gradient(to_right,var(--color-neutral-800)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-neutral-800)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_70%,transparent_100%)] opacity-20 pointer-events-none" />
       {/* Iridescent pulsing glows */}
       <div className="absolute top-10 left-1/4 w-[400px] h-[400px] bg-emerald-500/[0.03] blur-[120px] rounded-full pointer-events-none animate-pulse-slow" />
@@ -1077,7 +900,7 @@ function IntelligenceEcosystem() {
       <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
-        <div className="text-center mb-24 relative">
+        <div className="text-center mb-12 md:mb-24 relative">
           <div className="inline-flex items-center gap-2 bg-neutral-900/80 backdrop-blur border border-neutral-800 rounded-full px-4 py-1.5 mb-8 hover:bg-neutral-800 transition-colors cursor-default">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-[pulse_2s_ease-in-out_infinite] shadow-[0_0_10px_rgba(182,255,59,0.5)]" />
             <span className="text-[10px] font-mono text-emerald-400 tracking-wider">EKOSISTEM INTELIJEN LANGSUNG</span>
@@ -1088,12 +911,11 @@ function IntelligenceEcosystem() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sources.map((source, idx) => {
+        {(() => {
+          const renderSourceCard = (source: typeof sources[0], keyId: number) => {
             const Icon = source.icon;
 
-            // Generate a synthetic inline style color map for the glowing dot since Tailwind JIT might not pick up dynamic colors easily without safe-listing
-            let dotColor = '#10B981'; // emerald default
+            let dotColor = '#10B981';
             if (source.color.includes('emerald')) dotColor = '#B6FF3B';
             else if (source.color.includes('blue')) dotColor = '#4DA8FF';
             else if (source.color.includes('amber')) dotColor = '#FFB547';
@@ -1102,55 +924,53 @@ function IntelligenceEcosystem() {
             else if (source.color.includes('rose')) dotColor = '#FB7185';
 
             return (
-              <motion.div
-                key={idx}
-                whileHover={{ y: -6 }}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ delay: idx * 0.1, duration: 0.5 }}
-                className="bg-neutral-900/90 backdrop-blur-md border border-neutral-800 hover:border-neutral-600 p-8 rounded-[2rem] flex flex-col relative overflow-hidden group transition-all duration-500 shadow-xl hover:shadow-2xl hover:shadow-emerald-500/5 h-full"
-              >
-                {/* Glow & Scan Effects */}
-                <div className={`absolute top-0 right-0 w-64 h-64 opacity-5 filter blur-[80px] transition-all duration-700 group-hover:opacity-30 group-hover:scale-150 ${source.bg}`} />
-                <div className={`absolute -inset-px opacity-0 group-hover:opacity-10 rounded-[2rem] transition-opacity duration-500 bg-gradient-to-br from-white to-transparent`} />
-                <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]" />
+              <div key={keyId} className="w-[290px] sm:w-[360px] lg:w-[440px] shrink-0 h-[260px] sm:h-[290px] lg:h-[320px] mx-3">
+                <div className="h-full bg-neutral-900/90 backdrop-blur-md border border-neutral-800 hover:border-neutral-600 p-6 sm:p-8 rounded-[2rem] flex flex-col relative overflow-hidden group transition-all duration-500 shadow-xl hover:shadow-2xl hover:shadow-emerald-500/5">
+                  <div className={`absolute top-0 right-0 w-64 h-64 opacity-5 filter blur-[80px] transition-all duration-700 group-hover:opacity-30 group-hover:scale-150 ${source.bg}`} />
+                  <div className={`absolute -inset-px opacity-0 group-hover:opacity-10 rounded-[2rem] transition-opacity duration-500 bg-gradient-to-br from-white to-transparent`} />
+                  <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]" />
 
-                <div className="flex items-start justify-between mb-8 z-10">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${source.bg} ${source.border} border relative overflow-hidden group-hover:scale-110 transition-transform duration-500`}>
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <Icon className={`w-6 h-6 ${source.color} relative z-10 group-hover:animate-pulse`} />
+                  <div className="flex items-start justify-between mb-5 sm:mb-8 z-10">
+                    <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center ${source.bg} ${source.border} border relative overflow-hidden group-hover:scale-110 transition-transform duration-500`}>
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${source.color} relative z-10 group-hover:animate-pulse`} />
+                    </div>
+                    <div className="flex items-center gap-2 bg-neutral-950 rounded-full px-3 py-1.5 border border-neutral-800 group-hover:border-neutral-700 transition-colors shadow-inner">
+                      <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: dotColor, boxShadow: `0 0 8px ${dotColor}` }} />
+                      <span className="text-[10px] font-mono text-neutral-300 tracking-wide">{source.status}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 bg-neutral-950 rounded-full px-3 py-1.5 border border-neutral-800 group-hover:border-neutral-700 transition-colors shadow-inner">
-                    <span
-                      className={`w-2 h-2 rounded-full animate-pulse`}
-                      style={{ backgroundColor: dotColor, boxShadow: `0 0 8px ${dotColor}` }}
-                    />
-                    <span className="text-[10px] font-mono text-neutral-300 tracking-wide">{source.status}</span>
-                  </div>
-                </div>
 
-                <div className="z-10 flex-1">
-                  <h3 className="text-2xl font-medium text-white mb-2 tracking-tight group-hover:text-emerald-50 transition-colors">{source.name}</h3>
-                  <p className="text-neutral-400 text-sm leading-relaxed group-hover:text-neutral-300 transition-colors">{source.purpose}</p>
-
-                  <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500 ease-out">
-                    <div className="overflow-hidden">
-                      <div className="space-y-3 pt-6 pb-2">
-                        {source.items.map((item, i) => (
-                          <div key={i} className="flex items-center gap-3">
-                            <div className={`w-1.5 h-1.5 rounded-full ${source.bg.replace('/10', '')} shadow-[0_0_5px_currentColor]`} style={{ color: dotColor, backgroundColor: dotColor }} />
-                            <span className="text-sm font-mono text-neutral-400 group-hover:text-neutral-200 transition-colors">{item}</span>
-                          </div>
-                        ))}
-                      </div>
+                  <div className="z-10 flex-1 min-h-0 flex flex-col">
+                    <h3 className="text-xl sm:text-2xl font-medium text-white mb-1.5 tracking-tight group-hover:text-emerald-50 transition-colors">{source.name}</h3>
+                    <p className="text-neutral-400 text-xs sm:text-sm leading-relaxed group-hover:text-neutral-300 transition-colors">{source.purpose}</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-4 sm:pt-6 mt-auto">
+                      {source.items.map((item, i) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full ${source.bg.replace('/10', '')} shadow-[0_0_5px_currentColor] shrink-0`} style={{ color: dotColor, backgroundColor: dotColor }} />
+                          <span className="text-xs sm:text-sm font-mono text-neutral-400 group-hover:text-neutral-200 transition-colors whitespace-nowrap">{item}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
-              </motion.div>
-            )
-          })}
-        </div>
+              </div>
+            );
+          };
+
+          return (
+            <ScrollVelocityContainer>
+              <div className="absolute left-0 top-0 bottom-0 w-20 sm:w-28 lg:w-40 z-10 pointer-events-none bg-gradient-to-r from-neutral-950 via-neutral-950/90 to-transparent" />
+              <div className="absolute right-0 top-0 bottom-0 w-20 sm:w-28 lg:w-40 z-10 pointer-events-none bg-gradient-to-l from-neutral-950 via-neutral-950/90 to-transparent" />
+              <ScrollVelocityRow baseVelocity={6} direction={1} className="mb-4 sm:mb-6">
+                {sources.slice(0, 3).map((source, idx) => renderSourceCard(source, idx))}
+              </ScrollVelocityRow>
+              <ScrollVelocityRow baseVelocity={6} direction={-1}>
+                {sources.slice(3, 6).map((source, idx) => renderSourceCard(source, idx + 3))}
+              </ScrollVelocityRow>
+            </ScrollVelocityContainer>
+          );
+        })()}
 
         {/* Animated Intelligence Pipeline Visual */}
         <div className="mt-32 pt-20 border-t border-neutral-800/50">
@@ -1288,6 +1108,7 @@ export function Dashboard({ setActiveTab }: { setActiveTab: (id: string) => void
   return (
     <div className="w-full flex-1">
       <HeroSection setActiveTab={setActiveTab} />
+      <ThreatStatsSection />
       <BentoGrid />
       <InteractiveDemo />
       <ExplainableAI />
@@ -1303,7 +1124,7 @@ export function Dashboard({ setActiveTab }: { setActiveTab: (id: string) => void
         <div className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1 mb-6 relative z-10">
           <span className="text-[10px] font-mono text-emerald-400 tracking-wider">VERIFIKASI RISIKO DIGITAL</span>
         </div>
-        <h2 className="text-4xl md:text-5xl font-display font-medium mb-6 tracking-tight relative z-10">Saring Sebelum Percaya.</h2>
+        <h2 className="text-4xl md:text-5xl font-display font-medium mb-6 tracking-tight relative z-10">Verifikasi Sebelum Percaya.</h2>
         <p className="text-lg text-neutral-400 mb-10 relative z-10">Deteksi Ancaman Sebelum Terlambat. Bergabung dengan ekosistem intelijen digital kami dan lindungi diri Anda hari ini.</p>
         <button onClick={() => setActiveTab('scanner')} className="bg-emerald-400 text-neutral-950 px-10 py-4 rounded-xl font-medium hover:bg-emerald-300 transition-colors shadow-[0_0_40px_rgba(182,255,59,0.15)] flex items-center gap-2 mx-auto relative z-10">
           Mulai Analisis Sekarang <ArrowRight className="w-4 h-4" />

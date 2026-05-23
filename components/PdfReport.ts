@@ -1,0 +1,163 @@
+import jsPDF from "jspdf";
+
+type ScanResult = {
+  severity_score: number;
+  risk_level: string;
+  behavioral_analysis: string;
+  red_flags: string[];
+  manipulation_tactics: string[];
+  recommended_actions: string[];
+  similar_patterns?: string[];
+  deepfake_details?: {
+    ai_generated_probability: number;
+    face_detected: boolean;
+    detected_artifacts: string[];
+    facial_analysis?: string;
+  };
+  analysis_type?: string;
+};
+
+export function downloadDeepfakePdf(result: ScanResult, inputDescription: string) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const w = doc.internal.pageSize.getWidth();
+  const margin = 20;
+  const contentW = w - margin * 2;
+  let y = margin;
+  const primary = [16, 185, 129];
+  const danger = [239, 68, 68];
+  const textColor = [50, 50, 50];
+  const gray = [120, 120, 120];
+
+  function setColor(rgb: number[], alpha = 1) {
+    doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+    doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+    if (alpha < 1) doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+  }
+
+  function addSectionTitle(title: string, color: number[]) {
+    setColor(color);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(title, margin, y);
+    y += 6;
+    setColor(color, 0.3);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, w - margin, y);
+    y += 5;
+  }
+
+  function addBody(text: string) {
+    setColor(textColor);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const lines = doc.splitTextToSize(text, contentW);
+    for (const line of lines) {
+      if (y > 282) { doc.addPage(); y = margin; }
+      doc.text(line, margin, y);
+      y += 5;
+    }
+    y += 3;
+  }
+
+  function addBullet(items: string[], color?: number[]) {
+    for (const item of items) {
+      if (y > 282) { doc.addPage(); y = margin; }
+      if (color) setColor(color);
+      else setColor(textColor);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      const prefix = "\u2022 ";
+      const lines = doc.splitTextToSize(prefix + item, contentW);
+      doc.text(lines, margin, y);
+      y += 5 * lines.length + 1;
+    }
+    y += 2;
+  }
+
+  // ─── HEADER ───
+  setColor(primary);
+  doc.setFillColor(primary[0], primary[1], primary[2]);
+  doc.rect(margin, y, contentW, 16, "F");
+  setColor([255, 255, 255]);
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.text("VERIX Deepfake Analysis Report", margin + 3, y + 11);
+  y += 22;
+
+  // ─── META ───
+  setColor(gray);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  const now = new Date();
+  doc.text(`Generated: ${now.toLocaleDateString("id-ID", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}`, margin, y);
+  doc.text(`Analysis Type: Deepfake Detection`, margin, y + 4);
+  doc.text(`Risk Level: ${result.risk_level}`, margin, y + 8);
+  y += 16;
+
+  // ─── DEEPFAKE SCORE BAR ───
+  addSectionTitle("Deepfake Score", danger);
+  const scoreColor = result.severity_score >= 60 ? danger : result.severity_score >= 40 ? [245, 158, 11] : primary;
+  setColor(scoreColor);
+  doc.setFontSize(28);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${result.severity_score}/100`, margin, y);
+  y += 10;
+
+  // Progress bar
+  doc.setDrawColor(220, 220, 220);
+  doc.setFillColor(240, 240, 240);
+  doc.roundedRect(margin, y, contentW, 8, 2, 2, "FD");
+  const barW = (result.severity_score / 100) * contentW;
+  doc.setFillColor(scoreColor[0], scoreColor[1], scoreColor[2]);
+  doc.roundedRect(margin, y, barW, 8, 2, 2, "F");
+  y += 16;
+
+  // ─── ARTIFACTS DETECTED ───
+  if (result.deepfake_details?.detected_artifacts?.length) {
+    addSectionTitle("Detected Artifacts", danger);
+    addBullet(result.deepfake_details.detected_artifacts);
+  }
+
+  // ─── AI ANALYSIS ───
+  addSectionTitle("AI Analysis", primary);
+  addBody(result.behavioral_analysis);
+
+  // ─── RED FLAGS ───
+  if (result.red_flags.length > 0) {
+    addSectionTitle("Red Flags", danger);
+    addBullet(result.red_flags, danger);
+  }
+
+  // ─── MANIPULATION TACTICS ───
+  if (result.manipulation_tactics.length > 0) {
+    addSectionTitle("Manipulation Tactics", [245, 158, 11]);
+    addBullet(result.manipulation_tactics);
+  }
+
+  // ─── RECOMMENDED ACTIONS ───
+  addSectionTitle("Recommended Actions", primary);
+  for (let i = 0; i < result.recommended_actions.length; i++) {
+    if (y > 282) { doc.addPage(); y = margin; }
+    setColor(primary);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${i + 1}.`, margin, y);
+    setColor(textColor);
+    doc.setFont("helvetica", "normal");
+    const lines = doc.splitTextToSize(result.recommended_actions[i], contentW - 10);
+    doc.text(lines, margin + 7, y);
+    y += 5 * lines.length + 2;
+  }
+  y += 4;
+
+  // ─── FOOTER ───
+  if (y > 270) doc.addPage();
+  setColor(gray);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "italic");
+  doc.text("Generated by VERIX AI Security Platform  |  This report is for informational purposes only.", margin, y + 10);
+
+  // ─── SAVE ───
+  const filename = `verix-deepfake-report-${now.toISOString().slice(0, 10)}.pdf`;
+  doc.save(filename);
+}

@@ -24,7 +24,7 @@ export function IntelligenceProvider({ children }: { children: React.ReactNode }
 
     fetchIntel();
     
-    // Polling interval of 5 minutes — intel data changes slowly,
+    // Polling interval of 5 minutes  intel data changes slowly,
     // and the server-side SWR cache handles freshness transparently.
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') {

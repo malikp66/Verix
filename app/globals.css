@@ -84,6 +84,14 @@
   animation: marquee 35s linear infinite;
 }
 
+@utility animate-marquee-custom {
+  animation: marquee var(--duration, 35s) linear infinite;
+}
+
+@utility animate-marquee-vertical {
+  animation: marquee-vertical var(--duration, 20s) linear infinite;
+}
+
 @keyframes marquee {
   0% {
     transform: translateX(0);
@@ -93,8 +101,42 @@
   }
 }
 
+@keyframes marquee-vertical {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
 .hover-pause:hover {
   animation-play-state: paused;
+}
+
+@utility animate-border-beam {
+  animation: border-beam var(--duration, 8s) linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes border-beam {
+  100% {
+    offset-distance: 100%;
+  }
+}
+
+.scrollbar-custom::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-custom::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-custom::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.06);
+  border-radius: 9999px;
+}
+.scrollbar-custom::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.12);
 }
 
 body {

@@ -75,39 +75,6 @@ export function Footer({ setActiveTab }: FooterProps) {
                 </a>
               </li>
               <li>
-                <a 
-                  href="https://www.phishtank.com" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="hover:text-emerald-400 transition-colors flex items-center justify-between group"
-                >
-                  <span>PhishTank Database</span>
-                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-neutral-500 group-hover:text-emerald-400" />
-                </a>
-              </li>
-              <li>
-                <a 
-                  href="https://turnbackhoax.id" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="hover:text-emerald-400 transition-colors flex items-center justify-between group"
-                >
-                  <span>TurnBackHoax.id</span>
-                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-neutral-500 group-hover:text-emerald-400" />
-                </a>
-              </li>
-              <li>
-                <a 
-                  href="https://kontenaduan.kominfo.go.id" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="hover:text-emerald-400 transition-colors flex items-center justify-between group"
-                >
-                  <span>AduanKonten Kominfo</span>
-                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-neutral-500 group-hover:text-emerald-400" />
-                </a>
-              </li>
-              <li>
                 <span className="text-neutral-500 select-none">Google News Security RSS</span>
               </li>
             </ul>

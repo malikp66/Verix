@@ -108,11 +108,11 @@ function safeParseAndValidate(rawContent: string, expectedLength: number) {
   }
 
   if (!parsed?.enriched || !Array.isArray(parsed.enriched)) {
-    console.warn("[AI Layer] Missing 'enriched' array — returning null.");
+    console.warn("[AI Layer] Missing 'enriched' array  returning null.");
     return null;
   }
   if (!parsed?.report || typeof parsed.report !== 'object') {
-    console.warn("[AI Layer] Missing 'report' object — returning null.");
+    console.warn("[AI Layer] Missing 'report' object  returning null.");
     return null;
   }
 

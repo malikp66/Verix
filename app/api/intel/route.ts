@@ -94,7 +94,6 @@ function buildFinalPayload(enrichedItems: any[], report: any) {
     virusTotal: metrics.totalScans,
     safeBrowsing: metrics.totalScans,
     geminiVision: metrics.imageScans,
-    turnBackHoax: enrichedItems.filter(i => i.source.includes("turnbackhoax")).length,
     urlScan: metrics.totalScans,
     newsApi: enrichedItems.filter(i => i.source.includes("news.google")).length
   };
@@ -123,22 +122,20 @@ function buildFinalPayload(enrichedItems: any[], report: any) {
 // ----------------------------
 async function generateCuratedIntelligence(): Promise<any> {
   const googleNewsUrl = "https://news.google.com/rss/search?q=scam+OR+penipuan+OR+phishing+OR+hoax+indonesia&hl=id&gl=ID&ceid=ID:id";
-  const turnBackHoaxUrl = "https://turnbackhoax.id/feed/";
-  const cissrecUrl = "https://www.cissrec.org/feed/";
-  const bssnUrl = "https://bssn.go.id/feed/";
+  const phishingUrl = "https://news.google.com/rss/search?q=phishing+scam+bank+indonesia+APK&hl=id&gl=ID&ceid=ID:id";
+  const antaraUrl = "https://www.antaranews.com/rss/terkini.xml";
 
   console.log("[Intel Pipeline] Fetching news feeds...");
   
-  const [googleNewsItems, turnBackHoaxItems, cissrecItems, bssnItems] = await Promise.all([
+  const [googleNewsItems, phishingItems, antaraItems] = await Promise.all([
     fetchRSS(googleNewsUrl).then(items => items.map(i => ({ ...i, source: "news.google.com" }))),
-    fetchRSS(turnBackHoaxUrl).then(items => items.map(i => ({ ...i, source: "turnbackhoax.id" }))),
-    fetchRSS(cissrecUrl).then(items => items.map(i => ({ ...i, source: "cissrec.org" }))),
-    fetchRSS(bssnUrl).then(items => items.map(i => ({ ...i, source: "bssn.go.id" })))
+    fetchRSS(phishingUrl).then(items => items.map(i => ({ ...i, source: "news.google.com" }))),
+    fetchRSS(antaraUrl).then(items => items.map(i => ({ ...i, source: "antaranews.com" })))
   ]);
 
-let allRawItems = [...googleNewsItems, ...cissrecItems, ...bssnItems, ...turnBackHoaxItems];
-  const sourceCount = [googleNewsItems.length > 0, cissrecItems.length > 0, bssnItems.length > 0, turnBackHoaxItems.length > 0].filter(Boolean).length;
-  console.log(`[Intel Pipeline] ${allRawItems.length} raw items from ${sourceCount}/4 sources (google:${googleNewsItems.length}, cissrec:${cissrecItems.length}, bssn:${bssnItems.length}, turnbackhoax:${turnBackHoaxItems.length})`);
+let allRawItems = [...googleNewsItems, ...phishingItems, ...antaraItems];
+  const sourceCount = [googleNewsItems.length > 0, phishingItems.length > 0, antaraItems.length > 0].filter(Boolean).length;
+  console.log(`[Intel Pipeline] ${allRawItems.length} raw items from ${sourceCount}/3 sources (google:${googleNewsItems.length}, phishing:${phishingItems.length}, antara:${antaraItems.length})`);
 
   if (allRawItems.length === 0) {
     console.warn("[Intel Pipeline] No RSS items fetched. Using mock baseline.");
@@ -149,7 +146,7 @@ let allRawItems = [...googleNewsItems, ...cissrecItems, ...bssnItems, ...turnBac
   allRawItems = deduplicate(allRawItems);
   console.log(`[Intel Pipeline] ${allRawItems.length} unique items after dedup.`);
 
-  // If very few items, skip AI extraction (save cost) — use deterministic only
+  // If very few items, skip AI extraction (save cost)  use deterministic only
   if (allRawItems.length < 5) {
     console.warn(`[Intel Pipeline] Only ${allRawItems.length} unique items (insufficient), using deterministic extraction.`);
     const detItems = allRawItems.map(item => {

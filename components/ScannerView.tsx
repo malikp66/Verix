@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   ShieldAlert, Zap, UploadCloud, Search, CheckCircle2,
   AlertTriangle, Crosshair, ArrowRight, Activity, Radar,
-  Lock, ScanSearch, Terminal, Database, Brain, Network, ChevronDown, Sparkles, EyeOff
+  Lock, ScanSearch, Terminal, Database, Brain, Network, ChevronDown, Sparkles, EyeOff,
+  Link2, MessageSquare, Scan, Package, ScanFace, FileDown
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { LightRays } from './ui/light-rays';
@@ -15,6 +16,46 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { CreditTopUpModal } from './CreditTopUpModal';
 import { useAuth } from './FirebaseProvider';
 import { cn } from '@/lib/utils';
+import { downloadDeepfakePdf } from './PdfReport';
+import { ScanResultToast } from './ui/ScanResultToast';
+
+type ExifTrace = {
+  hasMetadata: boolean;
+  software?: string;
+  editingTraces: string[];
+  suspicious: boolean;
+  make?: string;
+  model?: string;
+};
+
+type QrisResult = {
+  merchant: string;
+  acquirer: string;
+  city: string;
+  flags: string[];
+  flagLabels: string[];
+  reportCount: number;
+  behavioral_analysis: string;
+  recommended_actions: string[];
+};
+
+type FileResult = {
+  file_name: string;
+  risk_score: number;
+  risk_level: string;
+  vt_result?: {
+    malicious: number;
+    suspicious: number;
+    undetected: number;
+    harmless: number;
+    total: number;
+    verdict: string;
+    analysisId?: string;
+    error?: string;
+  };
+  behavioral_analysis: string;
+  recommended_actions: string[];
+};
 
 type ScanResult = {
   severity_score: number;
@@ -25,10 +66,28 @@ type ScanResult = {
   recommended_actions: string[];
   similar_pattern?: string;
   similar_patterns?: string[];
+  analysis_type?: string;
+  deepfake_score?: number;
+  summary?: string;
+  confidence_level?: string;
+  face_detected?: boolean;
+  detected_artifacts?: string[];
+  exif?: ExifTrace;
+  // QRIS fields
+  merchant?: string;
+  acquirer?: string;
+  city?: string;
+  flags?: string[];
+  flagLabels?: string[];
+  reportCount?: number;
+  // File fields
+  file_name?: string;
+  vt_result?: FileResult["vt_result"];
   external_intelligence?: {
     virustotal?: string;
     safe_browsing?: string;
     urlscan?: string;
+    urlhaus?: string;
   };
   virustotal_raw?: {
     suspicious_votes: number;
@@ -41,6 +100,24 @@ type ScanResult = {
     last_analysis_date?: number;
   };
 };
+
+const SCAN_TABS = [
+  { id: 'text',     label: 'SMS / Teks',        icon: MessageSquare, color: 'cyan',   desc: 'Analisa pesan penipuan dari SMS, WhatsApp, atau chat',                    placeholder: 'Tulis pesan penipuan di sini...' },
+  { id: 'link',     label: 'Link Phishing',      icon: Link2,         color: 'rose',   desc: 'Tempel URL mencurigakan untuk analisa phishing & malware',               placeholder: 'example.com atau https://...' },
+  { id: 'qris',     label: 'QRIS / Gambar',      icon: Scan,          color: 'purple', desc: 'Upload screenshot QRIS palsu atau bukti chat penipuan',                   placeholder: 'Upload gambar atau tempel URL...' },
+  { id: 'apk',      label: 'APK Malware',        icon: Package,       color: 'amber',  desc: 'Periksa APK mencurigakan via nama package, hash, atau info file',          placeholder: 'Nama package APK atau hash...' },
+  { id: 'deepfake', label: 'Deepfake Foto',      icon: ScanFace,      color: 'fuchsia',desc: 'Deteksi foto palsu hasil AI/deepfake. Prioritaskan perlindungan identitas.', placeholder: 'Upload foto untuk analisa deepfake...' },
+] as const;
+
+const tabColorMap = {
+  cyan:    { accent: '#06b6d4', accentDim: 'rgba(6,182,212,0.2)',  accentBg: 'rgba(6,182,212,0.1)' },
+  rose:    { accent: '#f43f5e', accentDim: 'rgba(244,63,94,0.2)',  accentBg: 'rgba(244,63,94,0.1)' },
+  purple:  { accent: '#a855f7', accentDim: 'rgba(168,85,247,0.2)', accentBg: 'rgba(168,85,247,0.1)' },
+  amber:   { accent: '#f59e0b', accentDim: 'rgba(245,158,11,0.2)', accentBg: 'rgba(245,158,11,0.1)' },
+  fuchsia: { accent: '#d946ef', accentDim: 'rgba(217,70,239,0.2)', accentBg: 'rgba(217,70,239,0.1)' },
+};
+
+type ScanTabId = (typeof SCAN_TABS)[number]['id'];
 
 const SCAN_STEPS = [
   "Initializing VERIX Threat Engine...",
@@ -223,11 +300,16 @@ export function ScannerView() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [scanStepIndex, setScanStepIndex] = useState(0);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [isCachedResult, setIsCachedResult] = useState(false);
   const [currentScanId, setCurrentScanId] = useState('');
   const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [activeScanTab, setActiveScanTab] = useState<ScanTabId>('text');
+  const [isFormFocused, setIsFormFocused] = useState(false);
   const [shakeCards, setShakeCards] = useState(false);
+  const [toastResult, setToastResult] = useState<ScanResult | null>(null);
+  const [showToast, setShowToast] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -276,16 +358,105 @@ export function ScannerView() {
         return;
       }
 
-      // Validate MIME type
-      if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      // Validate MIME type  allow APK for apk tab
+      if (activeScanTab !== 'apk' && !ALLOWED_MIME_TYPES.includes(file.type)) {
+        // Allow any file type for APK tab
         setErrorMessage('Format file tidak didukung. Gunakan PNG, JPEG, WebP, atau GIF.');
         setScanState('error');
         return;
       }
 
+      // For APK tab, allow any file type (will be sent to /api/analyze/file)
+      if (activeScanTab === 'apk' && !file.type.startsWith('image/')) {
+        const bytes = await file.arrayBuffer();
+        const byteArray = new Uint8Array(bytes);
+        let binary = '';
+        byteArray.forEach(b => binary += String.fromCharCode(b));
+        const base64 = btoa(binary);
+        const dataUrl = `data:${file.type || 'application/octet-stream'};base64,${base64}`;
+        setSelectedImage(dataUrl);
+        setUploadedFile(file);
+        setInputVal(file.name);
+        setScanState('idle');
+        return;
+      }
+
       const base64 = await convertFileToBase64(file);
       setSelectedImage(base64);
+      setUploadedFile(file);
       setScanState('idle');
+    }
+  };
+
+  const decodeQrFromImage = async (base64: string): Promise<string | null> => {
+    try {
+      const { default: jsQR } = await import('jsqr');
+      const img = new Image();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => { resolve(); };
+        img.onerror = reject;
+        img.src = base64;
+      });
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      return code?.data || null;
+    } catch (e) {
+      console.warn('[QRIS] QR decode failed:', e);
+      return null;
+    }
+  };
+
+  const extractExif = async (file: File): Promise<ExifTrace | null> => {
+    try {
+      const exifr = await import('exifr');
+      const output = await exifr.default.parse(file, {
+        translateKeys: false,
+        reviveValues: false,
+      });
+      if (!output || Object.keys(output).length === 0) {
+        return {
+          hasMetadata: false,
+          editingTraces: ['No EXIF metadata found'],
+          suspicious: false,
+        };
+      }
+      const traces: string[] = [];
+      let suspicious = false;
+      const software = output.Software || output.ProcessingSoftware || '';
+      if (software) {
+        traces.push(`Editing software: ${software}`);
+        if (['photoshop', 'lightroom', 'faceapp', 'remini', 'picsart', 'snapseed', 'meitu'].some(
+          (t) => software.toLowerCase().includes(t))) {
+          suspicious = true;
+          traces.push(`⚠ Suspicious editing tool detected`);
+        }
+      }
+      const make = output.Make || '';
+      const model = output.Model || '';
+      if (make) {
+        traces.push(`Device: ${make} ${model}`.trim());
+      } else if (!software) {
+        traces.push('No camera/device info — may be AI-generated');
+        suspicious = true;
+      }
+      const createDate = output.DateTimeOriginal || output.CreateDate || '';
+      const modifyDate = output.ModifyDate || '';
+      if (createDate && modifyDate && createDate !== modifyDate) {
+        traces.push('Modified after original capture');
+        suspicious = true;
+      }
+      return { hasMetadata: true, software, editingTraces: traces, suspicious, make, model };
+    } catch {
+      return null;
     }
   };
 
@@ -306,16 +477,74 @@ export function ScannerView() {
     if (e) e.preventDefault();
     if (!inputVal.trim() && !selectedImage) return;
 
+    // APK file upload  send via multipart to /api/analyze/file
+    if (activeScanTab === 'apk' && selectedImage) {
+      setScanStepIndex(0);
+      setScanState('scanning');
+      setErrorMessage('');
+
+      try {
+        // Convert base64 back to blob
+        const base64Data = selectedImage.split(',')[1];
+        const mimeType = selectedImage.split(';')[0].split(':')[1];
+        const byteChars = atob(base64Data);
+        const byteNums = Array.from({ length: byteChars.length }, (_, i) => byteChars.charCodeAt(i));
+        const byteArray = new Uint8Array(byteNums);
+        const blob = new Blob([byteArray], { type: mimeType });
+        const file = new File([blob], `scan-${Date.now()}${mimeType === 'application/vnd.android.package-archive' ? '.apk' : '.bin'}`, { type: mimeType });
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch('/api/analyze/file', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to analyze file');
+
+        await consumeCredit(1);
+        setScanResult(data);
+        setToastResult(data);
+        setShowToast(true);
+        setIsCachedResult(false);
+        setTimeout(() => setScanState('results'), 500);
+      } catch (err: any) {
+        console.error(err);
+        setErrorMessage(err.message || 'Error analyzing file.');
+        setScanState('error');
+      }
+      return;
+    }
+
     setScanStepIndex(0);
     setScanState('scanning');
     setErrorMessage('');
 
     try {
-      const docId = await generateScanId(inputVal, selectedImage);
+      // For QRIS: decode QR from image first, then send decoded data
+      let qrDecodedText = inputVal;
+      let qrDecodedRaw: string | null = null;
+
+      if (activeScanTab === 'qris' && selectedImage) {
+        qrDecodedRaw = await decodeQrFromImage(selectedImage);
+        if (!qrDecodedRaw) {
+          setErrorMessage('Tidak dapat mendeteksi QR code dari gambar. Pastikan gambar mengandung QR code yang jelas.');
+          setScanState('error');
+          return;
+        }
+
+        // Parse QRIS string client-side for the raw data
+        // Full parsing + validation happens server-side
+        qrDecodedText = qrDecodedRaw;
+      }
+
+      const textToHash = activeScanTab === 'qris' ? qrDecodedRaw || inputVal : inputVal;
+      const docId = await generateScanId(textToHash, selectedImage);
       setCurrentScanId(docId);
 
-      // Check Cache in Firestore unless forced live
-      if (!forceLive) {
+      // Check Cache in Firestore unless forced live (skip for file/qris scans)
+      if (!forceLive && activeScanTab !== 'qris') {
         try {
           const docRef = doc(db, 'scans', docId);
           const docSnap = await getDoc(docRef);
@@ -323,17 +552,14 @@ export function ScannerView() {
             const cachedDoc = docSnap.data();
             const cachedAge = Date.now() - new Date(cachedDoc.createdAt).getTime();
 
-            // Only use cache if it's within TTL (24 hours)
             if (cachedAge < CACHE_MAX_AGE_MS) {
               const cachedData = cachedDoc.result as ScanResult;
               setScanResult(cachedData);
+              setToastResult(cachedData);
+              setShowToast(true);
               setIsCachedResult(true);
-              setTimeout(() => {
-                setScanState('results');
-              }, 800);
-              return; // Exit early, no credit consumed!
-            } else {
-              console.log('Cache expired (>24h), proceeding to live scan.');
+              setTimeout(() => setScanState('results'), 800);
+              return;
             }
           }
         } catch (cacheErr) {
@@ -341,11 +567,25 @@ export function ScannerView() {
         }
       }
 
-      // Live Scan - quota check bypassed (allows scan when credits === 0)
+      const payload: any = { text: qrDecodedText };
 
-      const payload: any = { text: inputVal };
+      if (activeScanTab === 'deepfake') {
+        payload.analysis_type = 'deepfake';
+        // Extract EXIF data and include it
+        if (selectedImage && uploadedFile) {
+          const exifData = await extractExif(uploadedFile);
+          if (exifData) {
+            payload.exifData = exifData;
+          }
+        }
+      }
+
+      if (activeScanTab === 'qris') {
+        payload.analysis_type = 'qris';
+        payload.qrData = qrDecodedRaw || qrDecodedText;
+      }
+
       if (selectedImage) {
-        // Format base64 for Gemini (needs inlineData)
         const base64Data = selectedImage.split(',')[1];
         const mimeType = selectedImage.substring(selectedImage.indexOf(":") + 1, selectedImage.indexOf(";"));
         payload.image = {
@@ -365,30 +605,29 @@ export function ScannerView() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to analyze');
 
-      // Consume 1 credit on successful scan
       await consumeCredit(1);
 
-      // Store in Firestore Cache
-      try {
-        const docRef = doc(db, 'scans', docId);
-        await setDoc(docRef, {
-          result: data,
-          input: {
-            text: inputVal,
-            hasImage: !!selectedImage
-          },
-          createdAt: new Date().toISOString()
-        });
-      } catch (cacheWriteErr) {
-        console.error("Failed to write scan to Firestore cache:", cacheWriteErr);
+      // Store in Firestore Cache (skip for qris/file)
+      if (activeScanTab !== 'qris') {
+        try {
+          const docRef = doc(db, 'scans', docId);
+          await setDoc(docRef, {
+            result: data,
+            input: {
+              text: inputVal,
+              hasImage: !!selectedImage
+            },
+            createdAt: new Date().toISOString()
+          });
+        } catch (cacheWriteErr) {
+          console.error("Failed to write scan to Firestore cache:", cacheWriteErr);
+        }
       }
 
       setScanResult(data);
       setIsCachedResult(false);
 
-      setTimeout(() => {
-        setScanState('results');
-      }, 500);
+      setTimeout(() => setScanState('results'), 500);
 
     } catch (err: any) {
       console.error(err);
@@ -417,88 +656,270 @@ export function ScannerView() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="flex flex-col items-center justify-center text-center mt-6"
+              className="flex flex-col items-center text-center mt-6"
             >
-              <div className="w-16 h-16 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center shadow-2xl mb-8 relative">
-                <Crosshair className="w-8 h-8 text-emerald-400" />
-                <div className="absolute inset-0 rounded-2xl border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]" />
+              {/* ─── TAB BAR ─── */}
+              <div className="inline-flex items-center gap-1.5 bg-neutral-900/80 border border-neutral-800 rounded-2xl p-1.5 mb-10 shadow-xl">
+                {SCAN_TABS.map((tab) => {
+                  const TabIcon = tab.icon;
+                  const isActive = activeScanTab === tab.id;
+                  const colorKey = tab.color as keyof typeof tabColorMap;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => { setActiveScanTab(tab.id as ScanTabId); setInputVal(''); setSelectedImage(null); }}
+                      className={cn(
+                        "relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono transition-all duration-300",
+                        isActive
+                          ? "text-white shadow-lg"
+                          : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/60"
+                      )}
+                    >
+                      {isActive && (
+                        <motion.div
+                          layoutId="scanTabGlow"
+                          className="absolute inset-0 rounded-xl border"
+                          style={{
+                            backgroundColor: tabColorMap[colorKey].accentBg,
+                            borderColor: tabColorMap[colorKey].accentDim,
+                            boxShadow: `0 0 20px ${tabColorMap[colorKey].accentDim}`,
+                          }}
+                          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                        />
+                      )}
+                      <span className="relative z-10 flex items-center gap-2">
+                        <TabIcon className="w-4 h-4" />
+                        <span className="hidden sm:inline">{tab.label}</span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
-              <h1 className="text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight">
-                Ancaman Digital <br className="hidden md:block" />Kini Terlihat Meyakinkan.
-              </h1>
-              <p className="text-lg text-neutral-400 mb-10 max-w-2xl">
-                VERIX membedah narasi penipuan secara real-time. Paste pesan SMS, link, atau upload screenshot WhatsApp — kami ungkap manipulation tactics di baliknya.
-              </p>
+              {/* ─── HERO ICON ─── */}
+              <motion.div
+                key={`hero-${activeScanTab}`}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="w-16 h-16 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center shadow-2xl mb-8 relative"
+              >
+                {(() => {
+                  const t = SCAN_TABS.find(t => t.id === activeScanTab)!;
+                  const TabIcon = t.icon;
+                  const c = tabColorMap[t.color as keyof typeof tabColorMap];
+                  return (
+                    <>
+                      <TabIcon className="w-8 h-8" style={{ color: c.accent }} />
+                      <div className="absolute inset-0 rounded-2xl" style={{ border: `1px solid ${c.accentDim}`, boxShadow: `0 0 30px ${c.accentDim}` }} />
+                    </>
+                  );
+                })()}
+              </motion.div>
 
-              <form onSubmit={handleScan} className="w-full max-w-3xl relative">
-                <div className="relative group rounded-2xl bg-neutral-900/80 border border-neutral-800 backdrop-blur-md shadow-2xl overflow-hidden focus-within:border-emerald-500/50 transition-colors">
+              {/* ─── HEADLINE ─── */}
+              <motion.div key={`headline-${activeScanTab}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                {activeScanTab === 'text' && (
+                  <>
+                    <h1 className="text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight">
+                      Ancaman Digital <br className="hidden md:block" />Kini Terlihat Meyakinkan.
+                    </h1>
+                    <p className="text-lg text-neutral-400 mb-6 max-w-2xl">
+                      VERIX membedah narasi penipuan secara real-time. Paste pesan SMS, link, atau upload screenshot WhatsApp  kami ungkap manipulation tactics di baliknya.
+                    </p>
+                  </>
+                )}
+                {activeScanTab === 'link' && (
+                  <>
+                    <h1 className="text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight">
+                      Link Phishing<span className="text-rose-400">.</span>
+                    </h1>
+                    <p className="text-lg text-neutral-400 mb-6 max-w-2xl">
+                      Tempel URL mencurigakan untuk diperiksa lintas database ancaman global. VERIX akan melacak redirect, memindai reputasi domain, dan mengungkap taktik phishing.
+                    </p>
+                  </>
+                )}
+                {activeScanTab === 'qris' && (
+                  <>
+                    <h1 className="text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight">
+                      QRIS &amp; Bukti <span className="text-purple-400">Scam</span>
+                    </h1>
+                    <p className="text-lg text-neutral-400 mb-6 max-w-2xl">
+                      Upload screenshot QRIS palsu, bukti chat, atau tautan mencurigakan. VERIX akan mengekstrak teks dari gambar dan menganalisanya untuk indikasi penipuan.
+                    </p>
+                  </>
+                )}
+                {activeScanTab === 'apk' && (
+                  <>
+                    <h1 className="text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight">
+                      APK <span className="text-amber-400">Malware</span> Scanner
+                    </h1>
+                    <p className="text-lg text-neutral-400 mb-6 max-w-2xl">
+                      Masukkan nama package, hash, atau info APK mencurigakan. VERIX akan memeriksa apakah aplikasi tersebut dikenal sebagai malware atau bagian dari kampanye penipuan.
+                    </p>
+                  </>
+                )}
+                {activeScanTab === 'deepfake' && (
+                  <>
+                    <h1 className="text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight">
+                      Deteksi <span className="text-fuchsia-400">Deepfake</span>
+                    </h1>
+                    <p className="text-lg text-neutral-400 mb-6 max-w-2xl">
+                      Upload foto yang mencurigakan  VERIX akan menganalisis tekstur kulit, pantulan mata, konsistensi pencahayaan, dan artefak GAN untuk mendeteksi pemalsuan berbasis AI. Prioritaskan perlindungan identitas Anda.
+                    </p>
+                  </>
+                )}
+              </motion.div>
 
-                  {/* Image preview area if selected */}
-                  {selectedImage && (
-                    <div className="w-full p-4 border-b border-neutral-800 relative bg-neutral-950/50">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedImage(null)}
-                        className="absolute top-6 right-6 bg-neutral-900 border border-neutral-700 w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-white"
-                      >
-                        ✕
-                      </button>
-                      <p className="text-xs font-mono text-emerald-400 mb-2">ATTACHED ARTIFACT</p>
-                      <div className="h-32 w-full overflow-hidden rounded-lg flex items-center justify-center">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={selectedImage} alt="Scam artifact" className="max-h-full object-contain" />
+              {/* ─── FORM ─── */}
+              {(() => {
+                const t = SCAN_TABS.find(t => t.id === activeScanTab)!;
+                const TabIcon = t.icon;
+                const c = tabColorMap[t.color as keyof typeof tabColorMap];
+                const isDeepfake = activeScanTab === 'deepfake';
+                return (
+                  <form onSubmit={handleScan} className="w-full max-w-3xl relative">
+                    <div
+                      className="relative group rounded-2xl bg-neutral-900/80 border backdrop-blur-md shadow-2xl overflow-hidden transition-colors"
+                      style={{ borderColor: isFormFocused ? c.accent : 'rgba(38,38,38,1)' }}
+                      onFocusCapture={() => setIsFormFocused(true)}
+                      onBlurCapture={() => setIsFormFocused(false)}
+                    >
+                      {/* Image preview or file info */}
+                      {selectedImage && (
+                        <div className="w-full p-4 border-b border-neutral-800 relative bg-neutral-950/50">
+                          <button
+                            type="button"
+                            onClick={() => { setSelectedImage(null); setUploadedFile(null); }}
+                            className="absolute top-6 right-6 bg-neutral-900 border border-neutral-700 w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-white"
+                          >
+                            ✕
+                          </button>
+                          {activeScanTab === 'apk' && uploadedFile && !uploadedFile.type.startsWith('image/') ? (
+                            <>
+                              <p className="text-xs font-mono mb-2" style={{ color: c.accent }}>ATTACHED APK FILE</p>
+                              <div className="flex items-center gap-4 p-4 rounded-xl border border-neutral-700 bg-neutral-900/50">
+                                <Package className="w-8 h-8 text-amber-400" />
+                                <div>
+                                  <p className="text-sm font-mono text-amber-200">{uploadedFile.name}</p>
+                                  <p className="text-[10px] font-mono text-neutral-500">{(uploadedFile.size / 1024 / 1024).toFixed(1)} MB</p>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-xs font-mono mb-2" style={{ color: c.accent }}>
+                                {activeScanTab === 'qris' ? 'QRIS QR CODE' : 'ATTACHED ARTIFACT'}
+                              </p>
+                              <div className="h-32 w-full overflow-hidden rounded-lg flex items-center justify-center">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={selectedImage} alt="Artifact" className="max-h-full object-contain" />
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="relative flex min-h-[4rem] items-center">
+                        <div className="pl-6 shrink-0 hidden sm:block" style={{ color: c.accent }}>
+                          <TabIcon className="w-6 h-6" />
+                        </div>
+
+                        {isDeepfake ? (
+                          <div className="flex-1 flex items-center gap-3 px-4 sm:px-6 py-5">
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="flex-1 flex flex-col items-center justify-center gap-2 py-8 rounded-xl border-2 border-dashed transition-colors"
+                              style={{ borderColor: `${c.accent}40`, backgroundColor: `${c.accent}08` }}
+                            >
+                              <UploadCloud className="w-8 h-8" style={{ color: c.accent }} />
+                              <span className="text-sm text-neutral-400 font-mono">Klik untuk upload foto</span>
+                              <span className="text-[10px] text-neutral-600">PNG, JPEG, WebP  Maks 5MB</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            value={inputVal}
+                            onChange={(e) => setInputVal(e.target.value)}
+                            placeholder={t.placeholder}
+                            className="w-full bg-transparent text-white px-4 sm:px-6 py-5 font-mono text-sm sm:text-base focus:outline-none placeholder:text-neutral-600 focus:ring-0"
+                          />
+                        )}
+
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          accept={activeScanTab === 'apk' ? '.apk,.bin,image/*' : 'image/*'}
+                          className="hidden"
+                          onChange={handleFileChange}
+                        />
+
+                        <div className="pr-4 shrink-0 flex items-center gap-2">
+                          {!isDeepfake && (
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              title={activeScanTab === 'apk' ? "Upload APK" : "Upload Bukti Screenshot"}
+                              className="p-3 text-neutral-400 bg-neutral-800/80 rounded-xl transition-colors shrink-0"
+                              onMouseEnter={(e) => e.currentTarget.style.color = c.accent}
+                              onMouseLeave={(e) => e.currentTarget.style.color = '#a3a3a3'}
+                            >
+                              <UploadCloud className="w-5 h-5" />
+                            </button>
+                          )}
+                          <button
+                            type="submit"
+                            disabled={isDeepfake ? !selectedImage : !inputVal.trim() && !selectedImage}
+                            className="px-6 py-3 font-medium rounded-xl transition-colors text-neutral-950 disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
+                            style={{
+                              backgroundColor: c.accent,
+                              boxShadow: !inputVal.trim() && !selectedImage ? 'none' : `0 0 20px ${c.accent}40`,
+                            }}
+                          >
+                            <span className="hidden sm:inline">{isDeepfake ? 'Deteksi' : 'Analyze'}</span>
+                            <Zap className="w-4 h-4 sm:hidden" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  )}
+                  </form>
+                );
+              })()}
 
-                  <div className="relative flex min-h-[4rem] items-center">
-                    <div className="pl-6 shrink-0 text-neutral-500 hidden sm:block">
-                      <Search className="w-6 h-6" />
-                    </div>
-                    <input
-                      type="text"
-                      value={inputVal}
-                      onChange={(e) => setInputVal(e.target.value)}
-                      placeholder="Tulis pesan text, APK info, atau tempel URL..."
-                      className="w-full bg-transparent text-white px-4 sm:px-6 py-5 font-mono text-sm sm:text-base focus:outline-none placeholder:text-neutral-600 focus:ring-0"
-                    />
-
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
-
-                    <div className="pr-4 shrink-0 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        title="Upload Bukti Screenshot"
-                        className="p-3 text-neutral-400 hover:text-emerald-400 bg-neutral-800/80 rounded-xl transition-colors shrink-0"
-                      >
-                        <UploadCloud className="w-5 h-5" />
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={!inputVal.trim() && !selectedImage}
-                        className="bg-emerald-500 text-neutral-950 px-6 py-3 font-medium rounded-xl hover:bg-emerald-400 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
-                      >
-                        <span className="hidden sm:inline">Analyze</span>
-                        <Zap className="w-4 h-4 sm:hidden" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </form>
-
-              <div className="flex flex-wrap items-center justify-center gap-6 mt-12 text-sm text-neutral-500">
-                <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500/70" /> AI Behavioral Analysis</span>
-                <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500/70" /> Visual Artifact Sandbox</span>
-                <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500/70" /> Live Threat Profiling</span>
-              </div>
+              {/* ─── FEATURE BADGES ─── */}
+              <motion.div key={`badge-${activeScanTab}`} className="flex flex-wrap items-center justify-center gap-6 mt-8 text-sm text-neutral-500">
+                {(activeScanTab === 'deepfake') && (
+                  <>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-fuchsia-500" /> Face Texture Analysis</span>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-fuchsia-500" /> GAN Artifact Detection</span>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-fuchsia-500" /> Lighting Consistency Check</span>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-fuchsia-500" /> EXIF Metadata Forensics</span>
+                  </>
+                )}
+                {(activeScanTab === 'qris') && (
+                  <>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-purple-500" /> QR Code Decoding</span>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-purple-500" /> Merchant Validation</span>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-purple-500" /> Brand Impersonation Check</span>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-purple-500" /> Community Blacklist</span>
+                  </>
+                )}
+                {(activeScanTab === 'apk') && (
+                  <>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-amber-500" /> Package/Hash Analysis</span>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-amber-500" /> VirusTotal File Scan</span>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-amber-500" /> Malware Heuristic Detection</span>
+                  </>
+                )}
+                {(activeScanTab !== 'deepfake' && activeScanTab !== 'qris' && activeScanTab !== 'apk') && (
+                  <>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500/70" /> AI Behavioral Analysis</span>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500/70" /> Visual Artifact Sandbox</span>
+                    <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500/70" /> Live Threat Profiling</span>
+                  </>
+                )}
+              </motion.div>
             </motion.div>
           )}
 
@@ -600,41 +1021,117 @@ export function ScannerView() {
                   >
                     <Zap className="w-3.5 h-3.5 text-emerald-400" /> Re-Scan
                   </button>
+
+                  {scanResult.analysis_type === 'deepfake' && (
+                    <button
+                      onClick={() => downloadDeepfakePdf(scanResult, inputVal || (selectedImage ? 'Uploaded Image' : ''))}
+                      title="Download PDF Report"
+                      className="text-xs font-mono bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-400 px-3.5 py-1.5 rounded-xl border border-fuchsia-500/20 hover:border-fuchsia-500/40 transition-all flex items-center gap-1.5 active:scale-95"
+                    >
+                      <FileDown className="w-3.5 h-3.5" /> PDF Report
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Top Row Bento: Target Context & Threat Severity Gauge */}
+              {/* Top Row Bento: Target Context & Score */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                 {/* 1. Target Context Card (2 cols on lg) */}
                 <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden min-h-[200px]">
                   <div className="flex items-center gap-2.5 mb-4 border-b border-neutral-800/80 pb-3">
-                    <ScanSearch className="w-5 h-5 text-cyan-400" />
-                    <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider">Scanned Target</span>
+                    {scanResult.analysis_type === 'deepfake' && <ScanFace className="w-5 h-5 text-fuchsia-400" />}
+                    {scanResult.analysis_type === 'qris' && <Scan className="w-5 h-5 text-purple-400" />}
+                    {scanResult.analysis_type === 'file' && <Package className="w-5 h-5 text-amber-400" />}
+                    {(!scanResult.analysis_type || scanResult.analysis_type === 'deepfake') && <ScanSearch className="w-5 h-5 text-cyan-400" />}
+                    <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider">
+                      {scanResult.analysis_type === 'deepfake' && 'Analyzed Image'}
+                      {scanResult.analysis_type === 'qris' && 'QRIS Merchant'}
+                      {scanResult.analysis_type === 'file' && 'Scanned File'}
+                      {(!scanResult.analysis_type || (scanResult.analysis_type !== 'deepfake' && scanResult.analysis_type !== 'qris' && scanResult.analysis_type !== 'file')) && 'Scanned Target'}
+                    </span>
                   </div>
                   <div className="flex-1 flex flex-col justify-center">
-                    {selectedImage ? (
-                      <div className="rounded-xl overflow-hidden border border-neutral-800 bg-neutral-950 flex justify-center items-center h-32 relative group">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={selectedImage} alt="Scam Evidence" className="max-h-full object-contain filter group-hover:brightness-50 transition-all" />
-                        <div className="absolute inset-0 pointer-events-none border-[3px] border-dashed border-emerald-500/30 rounded-xl" />
+                    {/* QRIS: show merchant info */}
+                    {scanResult.analysis_type === 'qris' && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-800">
+                          <p className="text-[10px] font-mono text-neutral-500 mb-1">MERCHANT</p>
+                          <p className="text-sm font-mono text-purple-300 font-medium">{scanResult.merchant || 'Unknown'}</p>
+                        </div>
+                        <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-800">
+                          <p className="text-[10px] font-mono text-neutral-500 mb-1">ACQUIRER</p>
+                          <p className="text-sm font-mono text-amber-300 font-medium">{scanResult.acquirer || 'Unknown'}</p>
+                        </div>
+                        <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-800">
+                          <p className="text-[10px] font-mono text-neutral-500 mb-1">CITY</p>
+                          <p className="text-sm font-mono text-cyan-300 font-medium">{scanResult.city || 'Unknown'}</p>
+                        </div>
+                        <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-800">
+                          <p className="text-[10px] font-mono text-neutral-500 mb-1">REPORTS</p>
+                          <p className={`text-sm font-mono font-medium ${(scanResult.reportCount || 0) > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                            {(scanResult.reportCount || 0) > 0 ? `${scanResult.reportCount}x` : 'None'}
+                          </p>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 font-mono text-sm text-emerald-300 break-all select-all font-medium leading-relaxed max-h-[110px] overflow-y-auto">
-                        {inputVal}
+                    )}
+                    {/* File: show file name + VT stats */}
+                    {scanResult.analysis_type === 'file' && (
+                      <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800">
+                        <p className="text-[10px] font-mono text-neutral-500 mb-1">FILE NAME</p>
+                        <p className="text-sm font-mono text-amber-300 font-medium break-all">{scanResult.file_name || 'Unknown'}</p>
+                        {scanResult.vt_result && (
+                          <div className="mt-2 flex items-center gap-4 text-[10px] font-mono">
+                            <span className="text-red-400">{scanResult.vt_result.malicious} malicious</span>
+                            <span className="text-amber-400">{scanResult.vt_result.suspicious} suspicious</span>
+                            <span className="text-emerald-400">{scanResult.vt_result.harmless || 0} harmless</span>
+                            <span className="text-neutral-500">{scanResult.vt_result.total} total</span>
+                          </div>
+                        )}
                       </div>
+                    )}
+                    {/* Deepfake / default: show image or text */}
+                    {scanResult.analysis_type !== 'qris' && scanResult.analysis_type !== 'file' && (
+                      selectedImage ? (
+                        <div className="rounded-xl overflow-hidden border border-neutral-800 bg-neutral-950 flex justify-center items-center h-32 relative group">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={selectedImage} alt="Evidence" className="max-h-full object-contain filter group-hover:brightness-50 transition-all" />
+                          <div className="absolute inset-0 pointer-events-none border-[3px] border-dashed rounded-xl"
+                            style={{ borderColor: scanResult.analysis_type === 'deepfake' ? 'rgba(217,70,239,0.3)' : 'rgba(16,185,129,0.3)' }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 font-mono text-sm text-emerald-300 break-all select-all font-medium leading-relaxed max-h-[110px] overflow-y-auto">
+                          {inputVal}
+                        </div>
+                      )
                     )}
                   </div>
                   <div className="mt-3 flex items-center justify-between text-[10px] font-mono text-neutral-500 pt-2 border-t border-neutral-800/20">
-                    <span>Format: {selectedImage ? 'Image/Screenshot OCR' : 'URL/Text Payload'}</span>
+                    <span>
+                      {scanResult.analysis_type === 'deepfake' && 'Image/Face Deepfake Detection'}
+                      {scanResult.analysis_type === 'qris' && 'QRIS Payment QR Analysis'}
+                      {scanResult.analysis_type === 'file' && 'APK/File Malware Scan'}
+                      {(!scanResult.analysis_type || (scanResult.analysis_type !== 'deepfake' && scanResult.analysis_type !== 'qris' && scanResult.analysis_type !== 'file')) && (selectedImage ? 'Image/Screenshot OCR' : 'URL/Text Payload')}
+                    </span>
                     <span>VERIX Core Engine v2.5</span>
                   </div>
                 </div>
 
                 {/* 2. Threat Severity Score Meter (1 col on lg) */}
                 <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[200px]">
-                  <div className={`absolute top-0 w-full h-1 ${scanResult.severity_score >= 80 ? 'bg-red-500 shadow-red-500' : scanResult.severity_score >= 50 ? 'bg-amber-500 shadow-amber-500' : 'bg-emerald-500 shadow-emerald-500'} shadow-[0_0_20px_var(--tw-shadow-color)]`} />
+                  <div className="absolute top-0 w-full h-1 shadow-[0_0_20px_var(--tw-shadow-color)]"
+                    style={{
+                      backgroundColor: scanResult.severity_score >= 80 ? '#ef4444' : scanResult.severity_score >= 50 ? '#f59e0b' : scanResult.analysis_type === 'deepfake' ? '#d946ef' : scanResult.analysis_type === 'qris' ? '#a855f7' : '#10b981',
+                      boxShadow: `0 0 20px ${scanResult.severity_score >= 80 ? '#ef4444' : scanResult.severity_score >= 50 ? '#f59e0b' : scanResult.analysis_type === 'deepfake' ? '#d946ef' : scanResult.analysis_type === 'qris' ? '#a855f7' : '#10b981'}`,
+                    }}
+                  />
 
-                  <p className="text-[10px] font-mono text-neutral-500 mb-3 uppercase tracking-wider">INTELLIGENCE SCORE</p>
+                  <p className="text-[10px] font-mono text-neutral-500 mb-3 uppercase tracking-wider">
+                    {scanResult.analysis_type === 'deepfake' && 'DEEPFAKE SCORE'}
+                    {scanResult.analysis_type === 'qris' && 'QRIS RISK SCORE'}
+                    {scanResult.analysis_type === 'file' && 'MALWARE SCORE'}
+                    {(!scanResult.analysis_type || (scanResult.analysis_type !== 'deepfake' && scanResult.analysis_type !== 'qris' && scanResult.analysis_type !== 'file')) && 'INTELLIGENCE SCORE'}
+                  </p>
 
                   {/* Ring Meter */}
                   <div className="relative w-24 h-24 flex items-center justify-center mb-3">
@@ -683,10 +1180,18 @@ export function ScannerView() {
                         </div>
 
                         <div className="flex items-center gap-3 mb-6 relative z-10">
-                          <span className="w-8 h-8 flex items-center justify-center bg-cyan-500/10 text-cyan-400 rounded-lg border border-cyan-500/20">
-                            <Activity className="w-4 h-4" />
+                          <span className="w-8 h-8 flex items-center justify-center rounded-lg border"
+                            style={{
+                              backgroundColor: scanResult.analysis_type === 'deepfake' ? 'rgba(217,70,239,0.1)' : 'rgba(6,182,212,0.1)',
+                              color: scanResult.analysis_type === 'deepfake' ? '#d946ef' : '#06b6d4',
+                              borderColor: scanResult.analysis_type === 'deepfake' ? 'rgba(217,70,239,0.2)' : 'rgba(6,182,212,0.2)',
+                            }}
+                          >
+                            {scanResult.analysis_type === 'deepfake' ? <ScanFace className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                           </span>
-                          <h3 className="text-lg font-display text-white">AI Threat Explanation</h3>
+                          <h3 className="text-lg font-display text-white">
+                            {scanResult.analysis_type === 'deepfake' ? 'AI Deepfake Analysis' : 'AI Threat Explanation'}
+                          </h3>
                         </div>
 
                         <p className="text-xl md:text-2xl font-light leading-relaxed text-neutral-200 relative z-10">
@@ -695,27 +1200,123 @@ export function ScannerView() {
 
                         <div className="mt-8 flex flex-col sm:flex-row gap-4 border-t border-neutral-800/50 pt-6">
                           <div className="flex-1">
-                            <p className="text-xs font-mono text-neutral-500 mb-3 uppercase tracking-wider">PATTERN MATCH</p>
+                            <p className="text-xs font-mono text-neutral-500 mb-3 uppercase tracking-wider">
+                              {scanResult.analysis_type === 'deepfake' && 'DETECTED ARTIFACTS'}
+                              {scanResult.analysis_type === 'qris' && 'SECURITY FLAGS'}
+                              {scanResult.analysis_type === 'file' && 'VT ENGINE RESULTS'}
+                              {(!scanResult.analysis_type || (scanResult.analysis_type !== 'deepfake' && scanResult.analysis_type !== 'qris' && scanResult.analysis_type !== 'file')) && 'PATTERN MATCH'}
+                            </p>
                             <div className="flex flex-wrap gap-2">
-                              {scanResult.similar_patterns && Array.isArray(scanResult.similar_patterns) ? scanResult.similar_patterns.map((pattern, idx) => (
-                                <div key={idx} className="flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-lg border border-neutral-800">
-                                  <Network className="w-3.5 h-3.5 text-cyan-500" />
-                                  <span className="text-xs font-mono text-cyan-100/80">{pattern}</span>
-                                </div>
-                              )) : (
-                                <div className="flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-lg border border-neutral-800">
-                                  <Network className="w-3.5 h-3.5 text-cyan-500" />
-                                  <span className="text-xs font-mono text-cyan-100/80">{scanResult.similar_pattern || 'No Pattern Match'}</span>
+                              {/* QRIS flags */}
+                              {scanResult.analysis_type === 'qris' && Array.isArray(scanResult.flagLabels) && (
+                                scanResult.flagLabels.length > 0 ? scanResult.flagLabels.map((label, idx) => (
+                                  <div key={idx} className="flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-lg border border-neutral-800">
+                                    <ShieldAlert className="w-3.5 h-3.5 text-purple-500" />
+                                    <span className="text-xs font-mono text-purple-100/80">{label}</span>
+                                  </div>
+                                )) : (
+                                  <div className="flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-lg border border-neutral-800">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                    <span className="text-xs font-mono text-emerald-100/80">Tidak ditemukan flag mencurigakan</span>
+                                  </div>
+                                )
+                              )}
+                              {/* File: VT engine results */}
+                              {scanResult.analysis_type === 'file' && scanResult.vt_result && scanResult.vt_result.total > 0 && (
+                                <div className="w-full space-y-1">
+                                  <div className="flex items-center gap-3 text-[11px] font-mono">
+                                    <span className="text-red-400">Malicious: {scanResult.vt_result.malicious}</span>
+                                    <span className="text-amber-400">Suspicious: {scanResult.vt_result.suspicious}</span>
+                                    <span className="text-emerald-400">Clean: {scanResult.vt_result.harmless || 0}</span>
+                                  </div>
+                                  <p className="text-[10px] font-mono text-neutral-500">
+                                    {scanResult.vt_result.verdict === 'MALWARE' ? '🚨 File ini terdeteksi sebagai malware oleh beberapa engine' :
+                                     scanResult.vt_result.verdict === 'SUSPICIOUS' ? '⚠️ File ini mencurigakan' :
+                                     scanResult.vt_result.verdict === 'CLEAN' ? '✅ File ini aman' :
+                                     'Tidak dapat memverifikasi'}
+                                  </p>
                                 </div>
                               )}
+                              {/* Deepfake artifacts */}
+                              {scanResult.analysis_type === 'deepfake' && Array.isArray(scanResult.detected_artifacts) ? (
+                                scanResult.detected_artifacts.length > 0 ? scanResult.detected_artifacts.map((artifact, idx) => (
+                                  <div key={idx} className="flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-lg border border-neutral-800">
+                                    <ShieldAlert className="w-3.5 h-3.5 text-fuchsia-500" />
+                                    <span className="text-xs font-mono text-fuchsia-100/80">{artifact}</span>
+                                  </div>
+                                )) : (
+                                  <div className="flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-lg border border-neutral-800">
+                                    <ShieldAlert className="w-3.5 h-3.5 text-fuchsia-500" />
+                                    <span className="text-xs font-mono text-fuchsia-100/80">No artifacts detected</span>
+                                  </div>
+                                )
+                              ) : null}
+                              {/* Default pattern match */}
+                              {!scanResult.analysis_type || (scanResult.analysis_type !== 'deepfake' && scanResult.analysis_type !== 'qris' && scanResult.analysis_type !== 'file') ? (
+                                scanResult.similar_patterns && Array.isArray(scanResult.similar_patterns) ? (
+                                  scanResult.similar_patterns.map((pattern, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-lg border border-neutral-800">
+                                      <Network className="w-3.5 h-3.5 text-cyan-500" />
+                                      <span className="text-xs font-mono text-cyan-100/80">{pattern}</span>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="flex items-center gap-2 bg-neutral-950 px-3 py-1.5 rounded-lg border border-neutral-800">
+                                    <Network className="w-3.5 h-3.5 text-cyan-500" />
+                                    <span className="text-xs font-mono text-cyan-100/80">{scanResult.similar_pattern || 'No Pattern Match'}</span>
+                                  </div>
+                                )
+                              ) : null}
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* External Intelligence Block */}
-                    {scanResult.external_intelligence && Object.keys(scanResult.external_intelligence).length > 0 && (
+                    {/* EXIF Trace (Deepfake only) */}
+                    {scanResult.analysis_type === 'deepfake' && scanResult.exif && (
+                      <div className="mt-6 border-t border-neutral-800/50 pt-6">
+                        <p className="text-xs font-mono text-neutral-500 mb-3 uppercase tracking-wider flex items-center gap-2">
+                          <Database className="w-3.5 h-3.5" /> EXIF METADATA ANALYSIS
+                        </p>
+                        <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-4 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono text-neutral-500">Status:</span>
+                            <span className={`text-[11px] font-mono ${scanResult.exif.suspicious ? 'text-rose-400' : 'text-emerald-400'}`}>
+                              {scanResult.exif.suspicious ? '⚠ Suspicious' : '✅ Normal'}
+                            </span>
+                          </div>
+                          {scanResult.exif.software && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-mono text-neutral-500">Software:</span>
+                              <span className="text-[11px] font-mono text-neutral-300">{scanResult.exif.software}</span>
+                            </div>
+                          )}
+                          {scanResult.exif.make && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-mono text-neutral-500">Device:</span>
+                              <span className="text-[11px] font-mono text-neutral-300">{scanResult.exif.make} {scanResult.exif.model || ''}</span>
+                            </div>
+                          )}
+                          {scanResult.exif.editingTraces.length > 0 && (
+                            <div className="pt-2 border-t border-neutral-800/40">
+                              <p className="text-[10px] font-mono text-neutral-500 mb-1.5">Traces:</p>
+                              <div className="space-y-1">
+                                {scanResult.exif.editingTraces.map((trace, idx) => (
+                                  <div key={idx} className="flex items-start gap-2">
+                                    <span className="text-[10px] font-mono text-neutral-400">{'>'}</span>
+                                    <span className="text-[10px] font-mono text-neutral-400">{trace}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* External Intelligence Block  skip for QRIS and file (no OSINT) */}
+                    {scanResult.external_intelligence && scanResult.analysis_type !== 'qris' && (scanResult.analysis_type !== 'file' || scanResult.external_intelligence.virustotal) && Object.keys(scanResult.external_intelligence).length > 0 && (
                       <div className="mt-6 flex flex-col gap-4 border-t border-neutral-800/50 pt-6">
                         <p className="text-xs font-mono text-neutral-500 mb-1 uppercase tracking-wider">External Intelligence Signals</p>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -849,6 +1450,34 @@ export function ScannerView() {
                             </div>
                           )}
 
+                          {/* Abuse.ch URLhaus Card */}
+                          {scanResult.external_intelligence.urlhaus && (
+                            <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-2xl flex flex-col justify-between min-h-[160px] relative overflow-hidden">
+                              <div className="flex items-center justify-between border-b border-neutral-900 pb-2">
+                                <span className="text-[11px] text-neutral-400 font-mono flex items-center gap-1.5">
+                                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400" /> Abuse.ch URLhaus
+                                </span>
+                                <span className="text-[9px] font-mono text-neutral-500 uppercase tracking-wider">
+                                  community
+                                </span>
+                              </div>
+
+                              <div className="my-2.5">
+                                <span className={`text-lg font-bold font-mono tracking-tight ${scanResult.external_intelligence.urlhaus.includes("TERINFEKSI") ? "text-rose-400" : scanResult.external_intelligence.urlhaus.includes("AMAN") ? "text-emerald-400" : "text-amber-400"
+                                  }`}>
+                                  {scanResult.external_intelligence.urlhaus.includes("TERINFEKSI") ? "MALICIOUS" : scanResult.external_intelligence.urlhaus.includes("AMAN") ? "CLEAN" : "UNAVAILABLE"}
+                                </span>
+                                <p className="text-[10px] text-neutral-400 mt-1 font-sans leading-relaxed">
+                                  {scanResult.external_intelligence.urlhaus || "Tidak terdaftar sebagai ancaman."}
+                                </p>
+                              </div>
+
+                              <div className="flex flex-wrap gap-1 mt-1 border-t border-neutral-900/60 pt-2 text-[8px] text-neutral-500 font-mono">
+                                <span>Malicious URL database</span>
+                              </div>
+                            </div>
+                          )}
+
                         </div>
                       </div>
                     )}
@@ -857,47 +1486,115 @@ export function ScannerView() {
 
                 {/* Column B: Vectors & Recommended Protocols (1 col on lg) */}
                 <div className="space-y-6">
-                  {/* Taktik Manipulasi */}
+                  {/* Deepfake Signs / Taktik Manipulasi / QRIS Flags */}
                   <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 relative overflow-hidden">
                     {credits === 0 && <AILockOverlay onTopUp={() => setShowTopUpModal(true)} />}
                     <div className={`transition-all duration-300 ${credits === 0 ? 'blur-md opacity-30 select-none pointer-events-none' : ''}`}>
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-mono text-neutral-500 flex items-center gap-2"><Radar className="w-4 h-4" /> VECTORS</h3>
+                        <h3 className="text-sm font-mono text-neutral-500 flex items-center gap-2">
+                          {scanResult.analysis_type === 'deepfake' && <><ScanFace className="w-4 h-4 text-fuchsia-400" /> DEEPFAKE SIGNS</>}
+                          {scanResult.analysis_type === 'qris' && <><Scan className="w-4 h-4 text-purple-400" /> QRIS FLAGS</>}
+                          {scanResult.analysis_type === 'file' && <><Package className="w-4 h-4 text-amber-400" /> VERDICT</>}
+                          {(!scanResult.analysis_type || (scanResult.analysis_type !== 'deepfake' && scanResult.analysis_type !== 'qris' && scanResult.analysis_type !== 'file')) && <><Radar className="w-4 h-4" /> VECTORS</>}
+                        </h3>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {scanResult.manipulation_tactics.map((tactic, idx) => (
+                        {/* QRIS: show flags as badges */}
+                        {scanResult.analysis_type === 'qris' && Array.isArray(scanResult.flags) && scanResult.flags.map((flag, idx) => (
                           <span key={idx} className="bg-neutral-950 border border-neutral-800 px-3 py-1.5 rounded-lg text-xs font-mono text-neutral-300 flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                            {tactic}
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                            {flag}
                           </span>
                         ))}
+                        {/* File: show VT verdict */}
+                        {scanResult.analysis_type === 'file' && scanResult.vt_result && (
+                          <span className="bg-neutral-950 border border-neutral-800 px-3 py-1.5 rounded-lg text-xs font-mono text-neutral-300 flex items-center gap-2">
+                            <div className={`w-1.5 h-1.5 rounded-full ${scanResult.vt_result.verdict === 'MALWARE' ? 'bg-red-500' : scanResult.vt_result.verdict === 'SUSPICIOUS' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                            {scanResult.vt_result.verdict}
+                          </span>
+                        )}
+                        {/* Default: manipulation tactics */}
+                        {(!scanResult.analysis_type || (scanResult.analysis_type !== 'deepfake' && scanResult.analysis_type !== 'qris' && scanResult.analysis_type !== 'file')) && (
+                          scanResult.manipulation_tactics.map((tactic, idx) => (
+                            <span key={idx} className="bg-neutral-950 border border-neutral-800 px-3 py-1.5 rounded-lg text-xs font-mono text-neutral-300 flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                              {tactic}
+                            </span>
+                          ))
+                        )}
+                        {/* Deepfake: show deepfake signs */}
+                        {scanResult.analysis_type === 'deepfake' && (
+                          <>
+                            {scanResult.face_detected !== undefined && (
+                              <span className="bg-neutral-950 border border-neutral-800 px-3 py-1.5 rounded-lg text-xs font-mono text-neutral-300 flex items-center gap-2">
+                                <div className={`w-1.5 h-1.5 rounded-full ${scanResult.face_detected ? 'bg-fuchsia-500' : 'bg-emerald-500'}`} />
+                                {scanResult.face_detected ? 'Face Detected' : 'No Face'}
+                              </span>
+                            )}
+                            {scanResult.confidence_level && (
+                              <span className="bg-neutral-950 border border-neutral-800 px-3 py-1.5 rounded-lg text-xs font-mono text-neutral-300 flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-fuchsia-500" />
+                                Confidence: {scanResult.confidence_level}
+                              </span>
+                            )}
+                          </>
+                        )}
                       </div>
 
                       <div className="mt-6 pt-6 border-t border-neutral-800">
                         <h3 className="text-sm font-mono text-neutral-500 mb-3 flex items-center gap-2"><Crosshair className="w-4 h-4" /> RED FLAGS</h3>
                         <ul className="space-y-2">
-                          {scanResult.red_flags.map((flag, idx) => (
+                          {/* QRIS: show flagLabels */}
+                          {scanResult.analysis_type === 'qris' && Array.isArray(scanResult.flagLabels) && scanResult.flagLabels.map((label, idx) => (
                             <li key={idx} className="text-xs text-red-400/90 flex items-start gap-2">
-                              <span className="text-red-500 mt-0.5 shrink-0">✗</span> {flag}
+                              <span className="text-red-500 mt-0.5 shrink-0">✗</span> {label}
                             </li>
                           ))}
-                          {scanResult.red_flags.length === 0 && (
-                            <li className="text-xs font-mono text-neutral-500">No red flags detected.</li>
+                          {/* Default: show red flags */}
+                          {(!scanResult.analysis_type || scanResult.analysis_type !== 'qris') && (
+                            Array.isArray(scanResult.red_flags) ? scanResult.red_flags.map((flag, idx) => (
+                              <li key={idx} className="text-xs text-red-400/90 flex items-start gap-2">
+                                <span className="text-red-500 mt-0.5 shrink-0">✗</span> {flag}
+                              </li>
+                            )) : (
+                              <li className="text-xs font-mono text-neutral-500">No red flags detected.</li>
+                            )
+                          )}
+                          {scanResult.analysis_type === 'qris' && (!scanResult.flagLabels || scanResult.flagLabels.length === 0) && (
+                            <li className="text-xs font-mono text-neutral-500">Tidak ada flag mencurigakan.</li>
                           )}
                         </ul>
                       </div>
                     </div>
                   </div>
 
-                  {/* Rekomendasi */}
-                  <div className="bg-emerald-950/20 border border-emerald-900/30 rounded-3xl p-6 relative overflow-hidden">
+                  {/* Rekomendasi / Protection Protocol */}
+                  <div className={cn("rounded-3xl p-6 relative overflow-hidden border",
+                    scanResult.analysis_type === 'deepfake' ? 'bg-fuchsia-950/20 border-fuchsia-900/30' :
+                    scanResult.analysis_type === 'qris' ? 'bg-purple-950/20 border-purple-900/30' :
+                    scanResult.analysis_type === 'file' ? 'bg-amber-950/20 border-amber-900/30' :
+                    'bg-emerald-950/20 border-emerald-900/30')}>
                     {credits === 0 && <AILockOverlay onTopUp={() => setShowTopUpModal(true)} />}
                     <div className={`transition-all duration-300 ${credits === 0 ? 'blur-md opacity-30 select-none pointer-events-none' : ''}`}>
-                      <h3 className="text-sm font-mono text-emerald-500/70 mb-4 flex items-center gap-2"><Lock className="w-4 h-4" /> ACTION PROTOCOL</h3>
+                      <h3 className={cn("text-sm font-mono mb-4 flex items-center gap-2",
+                        scanResult.analysis_type === 'deepfake' ? 'text-fuchsia-500/70' :
+                        scanResult.analysis_type === 'qris' ? 'text-purple-500/70' :
+                        scanResult.analysis_type === 'file' ? 'text-amber-500/70' :
+                        'text-emerald-500/70')}>
+                        <Lock className="w-4 h-4" /> {scanResult.analysis_type === 'deepfake' ? 'PROTECTION PROTOCOL' : scanResult.analysis_type === 'qris' ? 'QRIS SAFETY PROTOCOL' : scanResult.analysis_type === 'file' ? 'FILE SAFETY PROTOCOL' : 'ACTION PROTOCOL'}
+                      </h3>
                       <ul className="space-y-3">
                         {scanResult.recommended_actions.map((action, idx) => (
-                          <li key={idx} className="text-sm text-emerald-100/90 flex items-start gap-3 bg-emerald-900/10 p-3 rounded-xl border border-emerald-500/10">
-                            <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 text-xs font-bold border border-emerald-500/30">
+                          <li key={idx} className={cn("text-sm flex items-start gap-3 p-3 rounded-xl border",
+                            scanResult.analysis_type === 'deepfake' ? 'text-fuchsia-100/90 bg-fuchsia-900/10 border-fuchsia-500/10' :
+                            scanResult.analysis_type === 'qris' ? 'text-purple-100/90 bg-purple-900/10 border-purple-500/10' :
+                            scanResult.analysis_type === 'file' ? 'text-amber-100/90 bg-amber-900/10 border-amber-500/10' :
+                            'text-emerald-100/90 bg-emerald-900/10 border-emerald-500/10')}>
+                            <span className={cn("w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-xs font-bold border",
+                              scanResult.analysis_type === 'deepfake' ? 'bg-fuchsia-500/20 text-fuchsia-400 border-fuchsia-500/30' :
+                              scanResult.analysis_type === 'qris' ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' :
+                              scanResult.analysis_type === 'file' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                              'bg-emerald-500/20 text-emerald-400 border-emerald-500/30')}>
                               {idx + 1}
                             </span>
                             <span className="leading-tight pt-0.5">{action}</span>

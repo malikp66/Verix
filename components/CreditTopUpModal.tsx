@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Zap, Shield, Check, Loader2, AlertTriangle, Eye, Brain, Lock } from 'lucide-react';
 import Image from 'next/image';
@@ -59,7 +59,16 @@ export function CreditTopUpModal({
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const actionRef = useRef<HTMLDivElement>(null);
   const selected = TIERS.find((t) => t.id === selectedTier)!;
+
+  const handleSelectTier = (id: string) => {
+    setSelectedTier(id);
+    setTimeout(() => {
+      actionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  };
 
   const handlePayment = useCallback(async () => {
     if (!user) return;
@@ -153,7 +162,7 @@ export function CreditTopUpModal({
             {/* Ambient glow */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[200px] bg-emerald-500/[0.03] blur-[100px] rounded-full pointer-events-none" />
 
-            <div className="relative z-10 overflow-y-auto p-6 sm:p-8">
+            <div ref={scrollRef} className="relative z-10 overflow-y-auto scrollbar-custom p-6 sm:p-8">
               {paymentSuccess ? (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -227,7 +236,7 @@ export function CreditTopUpModal({
                       return (
                         <motion.button
                           key={tier.id}
-                          onClick={() => setSelectedTier(tier.id)}
+                          onClick={() => handleSelectTier(tier.id)}
                           whileTap={{ scale: 0.96 }}
                           className={cn(
                             'relative flex flex-col items-center gap-2.5 p-4 rounded-xl transition-all duration-300 cursor-pointer',
@@ -390,6 +399,7 @@ export function CreditTopUpModal({
                   )}
 
                   {/* Action Button */}
+                  <div ref={actionRef}>
                   {!user ? (
                     <div className="text-center">
                       <div className="rounded-xl bg-neutral-900/50 border border-neutral-800 p-5 mb-3">
@@ -443,6 +453,7 @@ export function CreditTopUpModal({
                     </button>
                   )}
 
+                  </div>
                   {/* Trust Footer */}
                   <div className="mt-5 pt-4 border-t border-neutral-800 flex items-center justify-center gap-2">
                     <Shield className="w-3.5 h-3.5 text-neutral-600" />

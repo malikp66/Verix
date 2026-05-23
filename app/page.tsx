@@ -12,7 +12,11 @@ import { SettingsView } from '@/components/SettingsView';
 import { Footer } from '@/components/Footer';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTabInner] = useState('dashboard');
+  const setActiveTab = (tab: string) => {
+    setActiveTabInner(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const [showSplash, setShowSplash] = useState(true);
 
   const renderContent = () => {

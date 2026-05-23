@@ -30,6 +30,11 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const handleTabChange = (id: string) => {
+    setActiveTab(id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const alerts = intel?.tickerAlerts || [
     "🚨 SYSTEM: Initializing threat intelligence network...",
     "⚠ SYNC: Connecting to local intelligence nodes"
@@ -99,7 +104,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => handleTabChange(item.id)}
                   className={`relative px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300 ${
                     isActive ? 'text-white' : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
                   }`}
@@ -107,19 +112,11 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
                   {isActive && (
                     <motion.div
                       layoutId="headerActiveTab"
-                      className="absolute inset-0 bg-neutral-800 rounded-full border border-neutral-700/50 shadow-[0_2px_10px_rgba(0,0,0,0.2)]"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
+                      className="absolute inset-0 bg-neutral-800 rounded-full border border-emerald-500/30 shadow-[0_2px_10px_rgba(0,0,0,0.2),0_0_12px_rgba(16,185,129,0.15)]"
                       transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     />
                   )}
                   <span className="relative z-10 font-mono tracking-wide">{item.label}</span>
-                  {isActive && (
-                     <motion.div 
-                       layoutId="headerActiveTabGlow"
-                       className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)] z-10" 
-                     />
-                  )}
                   {/* Tooltip on Hover */}
                   <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-max opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
                     <div className="bg-[#111111] border border-neutral-800 text-neutral-400 text-[11px] px-3 py-1.5 rounded-md shadow-xl font-mono">
@@ -226,7 +223,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
                   return (
                     <button
                       key={item.id}
-                      onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
+                      onClick={() => { handleTabChange(item.id); setIsMobileMenuOpen(false); }}
                       className={`relative px-4 py-3.5 rounded-xl text-left transition-all duration-300 flex flex-col gap-0.5 group ${
                         isActive ? 'bg-emerald-500/10 border-emerald-500/30 border' : 'hover:bg-neutral-800/50 border border-transparent'
                       }`}
@@ -283,9 +280,9 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
                  {user ? (
                     <button 
                      onClick={() => {
-                       setActiveTab('scanner');
-                       setIsMobileMenuOpen(false);
-                     }}
+                        handleTabChange('scanner');
+                        setIsMobileMenuOpen(false);
+                      }}
                      className="w-full relative px-4 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-sm font-medium text-emerald-400 transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden shadow-[0_0_15px_rgba(16,185,129,0.1)]"
                    >
                      <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent -translate-x-full hover:animate-[shimmer_1.5s_infinite]" />

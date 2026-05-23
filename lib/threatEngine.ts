@@ -128,6 +128,7 @@ export function calculateThreatScore(
     safe_browsing?: { malicious: boolean; source: string };
     virustotal?: { malicious_votes: number; suspicious_votes: number; total_engines: number; status: string };
     urlscan?: { dom_score?: number; flags?: string[] };
+    urlhaus?: { status: string; threat?: string; tags?: string[] };
   }
 ): ThreatReport {
   let score = 0;
@@ -194,6 +195,19 @@ export function calculateThreatScore(
       score += 25;
       redFlags.push('Terdeteksi upaya pengunduhan berkas berbahaya / APK dari situs.');
       triggers.push('urlscan_malware_heuristic');
+    }
+  }
+
+  // URLhaus / Abuse.ch
+  if (osintResults.urlhaus?.status === 'malicious') {
+    score += 30;
+    redFlags.push('URL dilaporkan dalam database Abuse.ch URLhaus sebagai malicious.');
+    triggers.push('urlhaus_malicious');
+
+    if (osintResults.urlhaus.threat === 'phishing' || osintResults.urlhaus.threat?.includes('phish')) {
+      score += 10;
+      redFlags.push('URLhaus mengklasifikasikan URL ini sebagai phishing.');
+      triggers.push('urlhaus_phishing');
     }
   }
 

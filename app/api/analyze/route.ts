@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { calculateThreatScore } from "@/lib/threatEngine";
 import { recordScanEvent } from "@/lib/scanMetrics";
 import { generateAIExplanation } from "@/lib/ai/explanation";
+import { analyzeDeepfake } from "@/lib/ai/deepfakeAnalysis";
+import { checkUrlHaus } from "@/lib/osint/urlhaus";
+import { validateQris } from "@/lib/qris/validator";
+import { getReportCount } from "@/lib/qris/store";
+import { parseQrisString } from "@/lib/qris/decoder";
+import { submitFile } from "@/lib/osint/vt-file";
 
 // --- Rate Limiting In-Memory Store ---
 const ipCache = new Map<string, { count: number; resetTime: number }>();
@@ -25,8 +31,8 @@ function isRateLimited(ip: string): boolean {
 
 // --- Preprocessing & URL Extraction ---
 function extractUrls(text: string): string[] {
-  // Regex matches http/https URLs or bare domains (e.g. bit.ly/xxx, s.id/xxx)
-  const urlRegex = /(https?:\/\/[^\s]+|(?:[a-zA-Z0-9-]+\.)+(?:com|id|net|org|xyz|info|top|site|online|ga|cf|gq|ml|tk|me|co|us|cc|tv|link|click|apk)(?:\/[^\s]*)?)/gi;
+  // Matches any http/https URL or bare domain (no TLD whitelist  like VirusTotal)
+  const urlRegex = /(https?:\/\/[^\s]+|(?:[a-zA-Z0-9-]+\.)+(?:[a-zA-Z]{2,})(?:\/[^\s]*)?)/gi;
   const matches = text.match(urlRegex) || [];
   
   // Clean matches and ensure http/https prefix
@@ -282,7 +288,64 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { text, image, metadata } = await req.json();
+    const { text, image, metadata, analysis_type, qrData, exifData } = await req.json();
+
+    // QRIS analysis path  skip all URL/OSINT/threat checks
+    if (analysis_type === 'qris') {
+      if (!qrData) {
+        return NextResponse.json({ error: "Data QRIS diperlukan untuk analisis." }, { status: 400 });
+      }
+
+      const qrisParsed = parseQrisString(qrData);
+      const reportCount = await getReportCount(qrisParsed.merchantName);
+      const qrisResult = validateQris(
+        {
+          merchantName: qrisParsed.merchantName,
+          merchantCity: qrisParsed.merchantCity,
+          acquirer: qrisParsed.acquirer,
+          terminalId: qrisParsed.terminalId,
+          txId: qrisParsed.txId,
+          raw: qrData,
+        },
+        reportCount,
+      );
+
+      const response = {
+        ...qrisResult,
+        severity_score: qrisResult.risk_score,
+        risk_level: qrisResult.verdict,
+        external_intelligence: {},
+        virustotal_raw: null,
+        analysis_type: "qris",
+      };
+
+      return NextResponse.json(response);
+    }
+
+    // Deepfake analysis path  skip all URL/OSINT/threat checks
+    if (analysis_type === 'deepfake') {
+      if (!image?.inlineData?.data) {
+        return NextResponse.json({ error: "Gambar diperlukan untuk analisis deepfake." }, { status: 400 });
+      }
+
+      const base64Data = `data:${image.inlineData.mimeType};base64,${image.inlineData.data}`;
+      const dfResult = await analyzeDeepfake(base64Data, exifData);
+
+      const response = {
+        ...dfResult,
+        severity_score: dfResult.deepfake_score,
+        risk_level: dfResult.deepfake_score >= 80 ? "CRITICAL"
+          : dfResult.deepfake_score >= 60 ? "HIGH"
+          : dfResult.deepfake_score >= 40 ? "MEDIUM"
+          : dfResult.deepfake_score >= 20 ? "LOW"
+          : "SAFE",
+        external_intelligence: {},
+        virustotal_raw: null,
+        analysis_type: "deepfake",
+      };
+
+      return NextResponse.json(response);
+    }
 
     const openRouterKey = process.env.OPENROUTER_API_KEY;
 
@@ -339,15 +402,17 @@ export async function POST(req: NextRequest) {
     const externalIntelligence: any = {};
     if (resolvedUrls.length > 0) {
       const primaryUrl = resolvedUrls[0];
-      const [safeBrowsing, virusTotal, urlScan] = await Promise.all([
+      const [safeBrowsing, virusTotal, urlScan, urlHaus] = await Promise.all([
         checkSafeBrowsing(primaryUrl),
         checkVirusTotal(primaryUrl),
-        checkUrlScan(primaryUrl)
+        checkUrlScan(primaryUrl),
+        checkUrlHaus(primaryUrl),
       ]);
       
       externalIntelligence.safe_browsing = safeBrowsing;
       externalIntelligence.virustotal = virusTotal;
       externalIntelligence.urlscan = urlScan;
+      externalIntelligence.urlhaus = urlHaus;
     }
 
     // 4. Calculate deterministic threat score
@@ -491,6 +556,14 @@ ${JSON.stringify({
       output.external_intelligence.urlscan = us.status === "fallback" 
         ? `Skor Reputasi: ${us.dom_score}/100`
         : `Skor Reputasi: ${us.dom_score}/100`;
+    }
+    if (externalIntelligence.urlhaus) {
+      const uh = externalIntelligence.urlhaus;
+      output.external_intelligence.urlhaus = uh.status === "malicious"
+        ? `🚨 TERINFEKSI (${uh.threat || "unknown"})`
+        : uh.status === "clean"
+        ? "✅ AMAN (Tidak terdaftar)"
+        : "⚠️ TIDAK DAPAT DIPERIKSA";
     }
 
     output.virustotal_raw = externalIntelligence.virustotal || null;

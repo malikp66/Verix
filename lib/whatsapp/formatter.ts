@@ -61,7 +61,7 @@ export function formatScanResult(result: ScanResult, url?: string): string {
     }
   }
 
-  text += `—\n*Powered by VERIX AI*`;
+  text += `\n*Powered by VERIX AI*`;
   return text;
 }
 
@@ -84,7 +84,7 @@ Halo! Saya adalah bot asisten keamanan VERIX. Kirimkan pesan teks mencurigakan, 
 • *Jangan unduh file .APK:* File undangan pernikahan palsu atau resi paket (.apk) adalah malware pencuri OTP.
 • *Jangan bagikan OTP/PIN:* Bank tidak pernah meminta kode OTP atau PIN Anda untuk alasan apa pun.
 
-—
+
 *Powered by VERIX AI*`;
 }
 

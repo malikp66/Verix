@@ -984,7 +984,7 @@ export function ThreatPulseView() {
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             <span>Merging real-world news feeds & platform telemetry signals.</span>
           </div>
-          <span>Didukung oleh Abuse.ch, TurnBackHoax.id, & Google News.</span>
+          <span>Didukung oleh Abuse.ch dan Google News.</span>
         </div>
       </div>
 
