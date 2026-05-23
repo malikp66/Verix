@@ -192,6 +192,8 @@ export async function analyzeDeepfake(imageBase64: string, exifData?: ExifTrace)
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   if (openRouterKey) {
     try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15_000);
       const fullImageUrl = imageBase64; // Already data:image/...;base64,...
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
@@ -201,6 +203,7 @@ export async function analyzeDeepfake(imageBase64: string, exifData?: ExifTrace)
           "HTTP-Referer": process.env.APP_URL || "https://verix.id",
           "X-Title": "VERIX Deepfake Detection"
         },
+        signal: controller.signal,
         body: JSON.stringify({
           model: "mistralai/pixtral-large-latest",
           messages: [{
@@ -215,6 +218,7 @@ export async function analyzeDeepfake(imageBase64: string, exifData?: ExifTrace)
           max_tokens: 2000,
         })
       });
+      clearTimeout(timer);
 
       if (res.ok) {
         const data = await res.json();

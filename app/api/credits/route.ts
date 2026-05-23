@@ -6,7 +6,7 @@ const userCredits = new Map<string, { used: number, max: number, lastReset: numb
 
 const LIMITS = {
   GUEST: 3,
-  VERIFIED: 25,
+  VERIFIED: 20,
   PREMIUM: 100
 };
 

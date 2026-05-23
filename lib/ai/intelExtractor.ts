@@ -1,9 +1,11 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 
 const OPENROUTER_MODELS = [
-  "google/gemini-2.5-flash",
-  "deepseek/deepseek-chat"
+  "deepseek/deepseek-chat",
+  "google/gemini-2.5-flash"
 ];
+
+const DEEPSEEK_TIMEOUT_MS = 15_000;
 
 // Definition of schema using standard Schema type from @google/genai
 const INTEL_SCHEMA: Schema = {
@@ -11,18 +13,22 @@ const INTEL_SCHEMA: Schema = {
   properties: {
     enriched: {
       type: Type.ARRAY,
-      description: "Must contain exactly the same number of items as the input, keeping the indices matched. Do NOT skip or merge items.",
+      description: "Must contain exactly the same number of items as the input, preserving array order. Do NOT skip or merge items.",
       items: {
         type: Type.OBJECT,
         properties: {
-          index: { type: Type.NUMBER, description: "The 0-based index of the input news item." },
-          type: { type: Type.STRING, description: "One of: PHISHING, MALWARE, SCAM, HOAX." },
-          vector: { type: Type.STRING, description: "One of: LINK, APK, QRIS, SOCIAL_ENGINEERING." },
+          title: { type: Type.STRING, description: "The original title of the news item." },
+          type: { type: Type.STRING, description: "One of: PHISHING, MALWARE, SCAM, HOAX, DEEPFAKE, QRIS_FRAUD." },
+          vector: { type: Type.STRING, description: "One of: WhatsApp, SMS, APK, Website, Social Media." },
           target: { type: Type.STRING, description: "Target brand or audience, e.g. BCA, BRI, DANA, Tokopedia, WhatsApp, Shopee, Nasabah Bank." },
+          region: { type: Type.STRING, description: "Geographic region: Jakarta, Indonesia, Global, or specific city." },
           severity: { type: Type.STRING, description: "One of: LOW, MEDIUM, HIGH, CRITICAL." },
-          summary: { type: Type.STRING, description: "A concise 1-2 sentence description in Indonesian of the scam/phishing tactic." }
+          summary: { type: Type.STRING, description: "A concise 1-2 sentence description in Indonesian of the scam/phishing tactic." },
+          confidence: { type: Type.NUMBER, description: "Confidence score 0-100 based on evidence strength." },
+          published_at: { type: Type.STRING, description: "ISO date string of when the article was published." },
+          source: { type: Type.STRING, description: "Source name of the article, e.g. GNews, Antara, Kompas." }
         },
-        required: ["index", "type", "vector", "target", "severity", "summary"]
+        required: ["title", "type", "vector", "target", "region", "severity", "summary", "confidence", "published_at", "source"]
       }
     },
     report: {
@@ -38,7 +44,7 @@ const INTEL_SCHEMA: Schema = {
         attack_vectors: {
           type: Type.ARRAY,
           items: { type: Type.STRING },
-          description: "The primary attack vectors active, e.g. LINK, APK, QRIS, SOCIAL_ENGINEERING."
+          description: "The primary attack vectors active, e.g. WhatsApp, SMS, APK, Website, QRIS."
         },
         risk_assessment: { type: Type.STRING, description: "One of: LOW, MEDIUM, HIGH, CRITICAL." },
         recommended_actions: {
@@ -54,7 +60,7 @@ const INTEL_SCHEMA: Schema = {
 };
 
 function repairJSON(raw: string): string | null {
-  const cleaned = raw.trim()
+  let cleaned = raw.trim()
     .replace(/^```(?:json)?\s*\n?/gm, '')
     .replace(/\n?```$/gm, '')
     .trim();
@@ -62,19 +68,28 @@ function repairJSON(raw: string): string | null {
   try { JSON.parse(cleaned); return cleaned; } catch {}
 
   let openBraces = 0, openBrackets = 0, inString = false, escaped = false;
+  let lastSignificant = "";
   for (const ch of cleaned) {
     if (escaped) { escaped = false; continue; }
     if (ch === '\\' && inString) { escaped = true; continue; }
     if (ch === '"') { inString = !inString; continue; }
     if (inString) continue;
-    if (ch === '{') openBraces++;
-    else if (ch === '}') openBraces--;
-    else if (ch === '[') openBrackets++;
-    else if (ch === ']') openBrackets--;
+    if (ch === '{') { openBraces++; lastSignificant = "{"; }
+    else if (ch === '}') { openBraces--; lastSignificant = "}"; }
+    else if (ch === '[') { openBrackets++; lastSignificant = "["; }
+    else if (ch === ']') { openBrackets--; lastSignificant = "]"; }
+    else if (ch === ':') { lastSignificant = ":"; }
+    else if (ch === ',') { lastSignificant = ","; }
   }
 
   let repaired = cleaned;
-  if (inString) repaired += '"';
+  if (inString) {
+    repaired = repaired.replace(/\\[uU][0-9a-fA-F]{0,3}$/, '');
+    repaired = repaired.replace(/\\$/, '');
+    repaired += '"';
+  } else if (lastSignificant === ":" || lastSignificant === "," || lastSignificant === "{" || lastSignificant === "[") {
+    repaired += '""';
+  }
   while (openBraces > 0) { repaired += '}'; openBraces--; }
   while (openBrackets > 0) { repaired += ']'; openBrackets--; }
 
@@ -98,12 +113,25 @@ function safeParseAndValidate(rawContent: string, expectedLength: number) {
         parsed = JSON.parse(repaired);
         console.log("[AI Layer] JSON repaired successfully.");
       } catch {
-        console.error("[AI Layer] JSON repair failed.");
-        return null;
+        console.error("[AI Layer] JSON repair still invalid, trying last-brace truncation...");
       }
     } else {
-      console.error("[AI Layer] JSON repair failed.");
-      return null;
+      console.warn("[AI Layer] JSON repair returned null, trying last-brace truncation...");
+    }
+    // Last-resort safety net: truncate to the last complete '}' 
+    if (!parsed) {
+      const lastBrace = cleaned.lastIndexOf('}');
+      if (lastBrace > 0) {
+        try {
+          parsed = JSON.parse(cleaned.slice(0, lastBrace + 1));
+          console.log("[AI Layer] Recovered via last-brace truncation.");
+        } catch {
+          console.error("[AI Layer] Last-brace truncation also failed.");
+          return null;
+        }
+      } else {
+        return null;
+      }
     }
   }
 
@@ -133,12 +161,14 @@ Published: ${item.date}
 Link: ${item.link}`).join('\n\n')}
 
 Analyze all the news items above.
-1. For EACH news item (index 0 to ${items.length - 1}), extract its type, vector, target brand, severity, and Indonesian summary.
+1. For EACH news item (item 0 to ${items.length - 1}), extract its type, vector, target brand, region, severity, confidence, summary, published_at, and source.
 2. Formulate a unified situational cyber threat report for Indonesia based on the aggregated intelligence.
 
 STRICT INSTRUCTIONS:
 - You MUST return a single JSON object matching the defined schema structure.
-- The 'enriched' array length MUST be exactly ${items.length}. Do NOT drop, skip, or group items together.
+- The 'enriched' array length MUST be exactly ${items.length}. Do NOT drop, skip, or group items together. Return items in the SAME ORDER as the input.
+- For each enriched item, include the original title exactly as provided.
+- confidence: 0-100 based on how many sources confirm or evidence strength.
 - Output MUST be valid JSON, containing no comments or extra conversational text.`;
 
   // 1. Try Native Gemini SDK first (free tier, lowest cost)
@@ -161,8 +191,11 @@ STRICT INSTRUCTIONS:
 
       const rawContent = response.text || "{}";
       const result = safeParseAndValidate(rawContent, items.length);
-      console.log(`[AI Layer] Successfully extracted intel using Native Gemini SDK (free)`);
-      return result;
+      if (result) {
+        console.log(`[AI Layer] Successfully extracted intel using Native Gemini SDK (free)`);
+        return result;
+      }
+      console.warn(`[AI Layer] Gemini returned null despite SDK success, continuing to fallback.`);
     } catch (e) {
       console.warn("[AI Layer] Native Gemini SDK failed, falling back to OpenRouter:", e);
     }
@@ -176,6 +209,8 @@ STRICT INSTRUCTIONS:
     for (const model of OPENROUTER_MODELS) {
       try {
         console.log(`[AI Layer] Attempting extraction with OpenRouter model: ${model}`);
+        const controller = model === "deepseek/deepseek-chat" ? new AbortController() : undefined;
+        const timer = controller ? setTimeout(() => controller.abort(), DEEPSEEK_TIMEOUT_MS) : undefined;
         const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -184,6 +219,7 @@ STRICT INSTRUCTIONS:
             "HTTP-Referer": process.env.APP_URL || "http://localhost:3000",
             "X-Title": "VERIX-Threat-Intel",
           },
+          signal: controller?.signal,
           body: JSON.stringify({
             model: model,
             messages: [{ role: "user", content: enrichedPrompt }],
@@ -193,6 +229,7 @@ STRICT INSTRUCTIONS:
             response_format: { type: "json_object" }
           }),
         });
+        if (timer) clearTimeout(timer);
 
         if (!res.ok) {
           console.warn(`[OpenRouter] Model ${model} returned status: ${res.status}`);
@@ -202,8 +239,11 @@ STRICT INSTRUCTIONS:
         const data = await res.json();
         const rawContent = data.choices?.[0]?.message?.content || "{}";
         const result = safeParseAndValidate(rawContent, items.length);
-        console.log(`[AI Layer] Successfully extracted intel using OpenRouter model: ${model}`);
-        return result;
+        if (result) {
+          console.log(`[AI Layer] Successfully extracted intel using OpenRouter model: ${model}`);
+          return result;
+        }
+        console.warn(`[OpenRouter] Model ${model} returned null, trying next model.`);
       } catch (e) {
         console.warn(`[OpenRouter] Error using model ${model}:`, e);
         continue;

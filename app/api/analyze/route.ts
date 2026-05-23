@@ -9,6 +9,7 @@ import { validateQris } from "@/lib/qris/validator";
 import { getReportCount } from "@/lib/qris/store";
 import { parseQrisString } from "@/lib/qris/decoder";
 import { submitFile } from "@/lib/osint/vt-file";
+import { enrichQrisAnalysis } from "@/lib/ai/qrisAnalysis";
 
 // --- Rate Limiting In-Memory Store ---
 const ipCache = new Map<string, { count: number; resetTime: number }>();
@@ -309,6 +310,22 @@ export async function POST(req: NextRequest) {
         },
         reportCount,
       );
+
+      const qrisAi = await enrichQrisAnalysis({
+        merchant: qrisResult.merchant,
+        acquirer: qrisResult.acquirer,
+        city: qrisResult.city,
+        risk_score: qrisResult.risk_score,
+        verdict: qrisResult.verdict,
+        flagLabels: qrisResult.flagLabels,
+        reportCount: qrisResult.reportCount,
+      });
+      if (qrisAi) {
+        qrisResult.behavioral_analysis = qrisAi.behavioral_analysis;
+        qrisResult.recommended_actions = [
+          ...new Set([...qrisResult.recommended_actions, ...qrisAi.recommended_actions]),
+        ];
+      }
 
       const response = {
         ...qrisResult,

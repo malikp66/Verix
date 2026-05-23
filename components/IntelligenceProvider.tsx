@@ -24,13 +24,13 @@ export function IntelligenceProvider({ children }: { children: React.ReactNode }
 
     fetchIntel();
     
-    // Polling interval of 5 minutes  intel data changes slowly,
-    // and the server-side SWR cache handles freshness transparently.
+    // Polling interval of 30 minutes — news API data is cached 24h server-side,
+    // RSS feeds are lightweight and updated on demand via server SWR cache.
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') {
         fetchIntel();
       }
-    }, 300000); 
+    }, 1800000); 
     
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isMounted) {

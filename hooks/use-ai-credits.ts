@@ -4,14 +4,15 @@ import { doc, onSnapshot, setDoc, getDocFromServer, updateDoc } from 'firebase/f
 import { db } from '@/lib/firebase';
 
 const GUEST_DAILY_LIMIT = 3;
-const USER_MONTHLY_LIMIT = 25;
+const USER_FREE_CREDITS = 20;
+const FREE_WEEKLY_CREDITS = 3;
 
 export function useAICredits() {
   const { user, loading } = useAuth();
   const [credits, setCredits] = useState<number | null>(null);
   const [isCreditLoading, setIsCreditLoading] = useState(true);
 
-  const maxCredits = user ? USER_MONTHLY_LIMIT : GUEST_DAILY_LIMIT;
+  const maxCredits = user ? 999 : GUEST_DAILY_LIMIT;
 
   useEffect(() => {
     if (loading) return;
@@ -36,19 +37,35 @@ export function useAICredits() {
       return;
     }
 
-    // User logic using Firestore
-    
+    // User logic using Firestore with weekly bonus
     setIsCreditLoading(true);
     const userRef = doc(db, 'users', user.uid);
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
     const unsubscribe = onSnapshot(userRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        if (data.aiCredits !== undefined) {
-          setCredits(data.aiCredits);
+
+        if (data.aiCredits === undefined) {
+          // New user: initialize with free credits
+          updateDoc(userRef, { aiCredits: USER_FREE_CREDITS, lastWeeklyReset: new Date().toISOString() }).catch(err => console.error(err));
+          setCredits(USER_FREE_CREDITS);
         } else {
-          // Initialize credits for new user
-          updateDoc(userRef, { aiCredits: USER_MONTHLY_LIMIT }).catch(err => console.error(err));
-          setCredits(USER_MONTHLY_LIMIT);
+          // Check weekly bonus
+          const now = Date.now();
+          const lastReset = data.lastWeeklyReset
+            ? (typeof data.lastWeeklyReset === 'string' ? new Date(data.lastWeeklyReset).getTime() : data.lastWeeklyReset.toMillis?.() || 0)
+            : 0;
+
+          if (!lastReset || now - lastReset > WEEK_MS) {
+            const bonus = lastReset === 0 ? 0 : FREE_WEEKLY_CREDITS;
+            const newCredits = data.aiCredits + bonus;
+            updateDoc(userRef, { aiCredits: newCredits, lastWeeklyReset: new Date().toISOString() }).catch(err => console.error(err));
+            // Set immediately so UI doesn't flash the old value
+            setCredits(newCredits);
+          } else {
+            setCredits(data.aiCredits);
+          }
         }
       }
       setIsCreditLoading(false);
@@ -71,7 +88,7 @@ export function useAICredits() {
       const userRef = doc(db, 'users', user.uid);
       const snap = await getDocFromServer(userRef);
       if (snap.exists()) {
-        const current = snap.data().aiCredits ?? USER_MONTHLY_LIMIT;
+        const current = snap.data().aiCredits ?? USER_FREE_CREDITS;
         if (current >= amount) {
           await updateDoc(userRef, { aiCredits: current - amount });
           return true;
@@ -97,7 +114,7 @@ export function useAICredits() {
       const userRef = doc(db, 'users', user.uid);
       // Get the document from server to ensure accuracy
       const snap = await getDocFromServer(userRef);
-      const current = snap.exists() ? (snap.data().aiCredits ?? USER_MONTHLY_LIMIT) : USER_MONTHLY_LIMIT;
+      const current = snap.exists() ? (snap.data().aiCredits ?? USER_FREE_CREDITS) : USER_FREE_CREDITS;
       await setDoc(userRef, { aiCredits: current + amount }, { merge: true });
       return true;
     } catch (e) {

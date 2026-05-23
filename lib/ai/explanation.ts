@@ -1,33 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
-import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
+import { cacheGet, cacheSet } from "@/lib/redis";
 
 const OPENROUTER_MODELS = [
-  "google/gemini-2.5-flash",
-  "deepseek/deepseek-chat"
+  "deepseek/deepseek-chat",
+  "google/gemini-2.5-flash"
 ];
 
-const SCAN_CACHE_PATH = path.join(process.cwd(), 'lib', 'scan_cache.json');
-
-function getScanCache(): Record<string, any> {
-  try {
-    if (!fs.existsSync(SCAN_CACHE_PATH)) return {};
-    return JSON.parse(fs.readFileSync(SCAN_CACHE_PATH, 'utf-8'));
-  } catch {
-    return {};
-  }
-}
-
-function saveScanCache(cache: Record<string, any>): void {
-  try {
-    const dir = path.dirname(SCAN_CACHE_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(SCAN_CACHE_PATH, JSON.stringify(cache, null, 2), 'utf8');
-  } catch (e) {
-    console.warn('[Scan Cache] Failed to save:', e);
-  }
-}
+const DEEPSEEK_TIMEOUT_MS = 15_000;
 
 function hashInput(text: string, schema: any): string {
   return crypto.createHash('sha256').update(text + JSON.stringify(schema)).digest('hex');
@@ -42,19 +22,26 @@ function repairJSON(raw: string): string | null {
   try { JSON.parse(cleaned); return cleaned; } catch {}
 
   let openBraces = 0, openBrackets = 0, inString = false, escaped = false;
+  let lastSignificant = "";
   for (const ch of cleaned) {
     if (escaped) { escaped = false; continue; }
     if (ch === '\\' && inString) { escaped = true; continue; }
     if (ch === '"') { inString = !inString; continue; }
     if (inString) continue;
-    if (ch === '{') openBraces++;
-    else if (ch === '}') openBraces--;
-    else if (ch === '[') openBrackets++;
-    else if (ch === ']') openBrackets--;
+    if (ch === '{') { openBraces++; lastSignificant = "{"; }
+    else if (ch === '}') { openBraces--; lastSignificant = "}"; }
+    else if (ch === '[') { openBrackets++; lastSignificant = "["; }
+    else if (ch === ']') { openBrackets--; lastSignificant = "]"; }
+    else if (ch === ':') { lastSignificant = ":"; }
+    else if (ch === ',') { lastSignificant = ","; }
   }
 
   let repaired = cleaned;
-  if (inString) repaired += '"';
+  if (inString) {
+    repaired += '"';
+  } else if (lastSignificant === ":" || lastSignificant === "," || lastSignificant === "{" || lastSignificant === "[") {
+    repaired += '""';
+  }
   while (openBraces > 0) { repaired += '}'; openBraces--; }
   while (openBrackets > 0) { repaired += ']'; openBrackets--; }
 
@@ -96,11 +83,11 @@ function safeParseAndMerge(rawContent: string, modelName: string) {
 
 export async function generateAIExplanation(prompt: string, schemaDefinition: any) {
   // === SCAN CACHE CHECK ===
-  const cacheKey = hashInput(prompt, schemaDefinition);
-  const scanCache = getScanCache();
-  if (scanCache[cacheKey]) {
+  const cacheKey = `scan:${hashInput(prompt, schemaDefinition)}`;
+  const cached = await cacheGet<any>(cacheKey);
+  if (cached) {
     console.log(`[AI Layer] Scan cache HIT. Returning cached explanation.`);
-    return { ...scanCache[cacheKey], _from_cache: true };
+    return { ...cached, _from_cache: true };
   }
 
   // 1. Try Native Gemini SDK first (free tier, lowest cost)
@@ -124,8 +111,7 @@ export async function generateAIExplanation(prompt: string, schemaDefinition: an
       const finalOutput = safeParseAndMerge(rawContent, "native/gemini-2.5-flash");
 
       console.log(`[AI Layer] Successfully used native Gemini SDK (free).`);
-      scanCache[cacheKey] = finalOutput;
-      saveScanCache(scanCache);
+      await cacheSet(cacheKey, finalOutput, 7 * 24 * 3600);
       return finalOutput;
 
     } catch (e) {
@@ -141,6 +127,8 @@ export async function generateAIExplanation(prompt: string, schemaDefinition: an
     
     for (const model of OPENROUTER_MODELS) {
       try {
+        const controller = model === "deepseek/deepseek-chat" ? new AbortController() : undefined;
+        const timer = controller ? setTimeout(() => controller.abort(), DEEPSEEK_TIMEOUT_MS) : undefined;
         const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -149,6 +137,7 @@ export async function generateAIExplanation(prompt: string, schemaDefinition: an
             "HTTP-Referer": process.env.APP_URL || "http://localhost:3000",
             "X-Title": "VERIX",
           },
+          signal: controller?.signal,
           body: JSON.stringify({
             model: model,
             messages: [{ role: "user", content: enrichedPrompt }],
@@ -158,6 +147,7 @@ export async function generateAIExplanation(prompt: string, schemaDefinition: an
             response_format: { type: "json_object" }
           }),
         });
+        if (timer) clearTimeout(timer);
 
         if (!res.ok) {
           console.warn(`[OpenRouter] Model ${model} failed with status: ${res.status}`);
@@ -169,8 +159,7 @@ export async function generateAIExplanation(prompt: string, schemaDefinition: an
         const finalOutput = safeParseAndMerge(rawContent, `openrouter/${model}`);
         
         console.log(`[AI Layer] Successfully used OpenRouter model: ${model}`);
-        scanCache[cacheKey] = finalOutput;
-        saveScanCache(scanCache);
+        await cacheSet(cacheKey, finalOutput, 7 * 24 * 3600);
         return finalOutput;
         
       } catch (e) {

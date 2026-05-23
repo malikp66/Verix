@@ -21,6 +21,18 @@ const FRAUD_KEYWORDS = [
   'upgrade rekening', 'kode verifikasi', 'jangan bagikan kode', 'otp'
 ];
 
+const QRIS_FRAUD_KEYWORDS = [
+  'qris', 'scan qris', 'kode qris', 'bayar qris', 'pembayaran qris',
+  'qris palsu', 'merchant qris', 'tagihan qris', 'kode pembayaran',
+  'qr code bayar', 'qr is',
+];
+
+const QRIS_BRAND_COMBOS = [
+  'bca qris', 'bri qris', 'mandiri qris', 'bni qris',
+  'dana qris', 'ovo qris', 'gopay qris', 'shopeepay qris',
+  'linkaja qris',
+];
+
 const BRAND_VERIFICATIONS: { brand: string; keywords: string[]; officialDomains: string[] }[] = [
   {
     brand: 'BCA',
@@ -306,6 +318,28 @@ export function calculateThreatScore(
     score += 15;
     redFlags.push('Pesan mengarahkan penerima untuk mengunduh aplikasi (.apk).');
     triggers.push('apk_mention');
+  }
+
+  // QRIS keywords in text
+  const matchedQris = QRIS_FRAUD_KEYWORDS.filter(kw => textLower.includes(kw));
+  if (matchedQris.length > 0) {
+    score += 15;
+    redFlags.push('Pesan menyebutkan QRIS — modus penipuan QRIS palsu banyak beredar.');
+    triggers.push('qris_mention');
+  }
+
+  // QRIS + brand name impersonation (e.g. "bca qris" in text)
+  if (QRIS_BRAND_COMBOS.some(kw => textLower.includes(kw))) {
+    score += 20;
+    redFlags.push('Pesan menggunakan kombinasi nama bank/e-wallet dengan QRIS — potensi skimming QRIS palsu.');
+    triggers.push('qris_brand_impersonation');
+  }
+
+  // QRIS + APK combined (common scam: scan QRIS then install APK)
+  if (triggers.includes('qris_mention') && triggers.includes('apk_mention')) {
+    score += 15;
+    redFlags.push('Kombinasi QRIS + APK sangat mencurigakan — modus penipuan umum: scan QRIS lalu install APK.');
+    triggers.push('qris_apk_combo');
   }
 
   // --- 4. Negative Signals (score reduction for safe indicators) ---

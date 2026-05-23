@@ -625,6 +625,8 @@ export function ScannerView() {
       }
 
       setScanResult(data);
+      setToastResult(data);
+      setShowToast(true);
       setIsCachedResult(false);
 
       setTimeout(() => setScanState('results'), 500);
@@ -1619,6 +1621,11 @@ export function ScannerView() {
         topUpCredits={topUpCredits}
         credits={credits}
         onLogin={login}
+      />
+      <ScanResultToast
+        result={toastResult}
+        visible={showToast}
+        onClose={() => setShowToast(false)}
       />
     </div>
   );

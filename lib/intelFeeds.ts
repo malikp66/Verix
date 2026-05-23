@@ -8,11 +8,13 @@ export type IntelItem = {
   publishedAt: string;
 
   // AI structured (or fallback enriched)
-  type: "PHISHING" | "MALWARE" | "SCAM" | "HOAX";
-  vector: "LINK" | "APK" | "QRIS" | "SOCIAL_ENGINEERING";
+  type: "PHISHING" | "MALWARE" | "SCAM" | "HOAX" | "DEEPFAKE" | "QRIS_FRAUD";
+  vector: "LINK" | "APK" | "QRIS" | "SOCIAL_ENGINEERING" | "WhatsApp" | "SMS" | "Social Media";
   target?: string;
   severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   summary: string;
+  region?: string;
+  confidence?: number;
   source_type: "REAL" | "SIMULATED";
 };
 

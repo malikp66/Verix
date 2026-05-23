@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { submitFile } from "@/lib/osint/vt-file";
+import { enrichFileAnalysis } from "@/lib/ai/fileAnalysis";
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,20 +31,29 @@ export async function POST(req: NextRequest) {
       : risk_score >= 20 ? "LOW"
       : "SAFE";
 
-    const response = {
-      analysis_type: "file",
+    let behavioral_analysis: string;
+    let recommended_actions: string[];
+
+    const fileAi = await enrichFileAnalysis({
       file_name: file.name,
-      risk_score,
-      risk_level,
-      vt_result: result,
-      behavioral_analysis: result.verdict === "MALWARE"
+      verdict: result.verdict,
+      malicious: result.malicious,
+      suspicious: result.suspicious,
+      total: result.total,
+    });
+
+    if (fileAi) {
+      behavioral_analysis = fileAi.behavioral_analysis;
+      recommended_actions = fileAi.recommended_actions;
+    } else {
+      behavioral_analysis = result.verdict === "MALWARE"
         ? `File "${file.name}" terdeteksi sebagai ${result.verdict} oleh ${result.malicious}/${result.total} engine VirusTotal. JANGAN install file ini.`
         : result.verdict === "SUSPICIOUS"
         ? `File "${file.name}" memiliki ${result.malicious} deteksi dari ${result.total} engine. Disarankan untuk tidak menginstall.`
         : result.verdict === "CLEAN"
         ? `File "${file.name}" aman — 0 deteksi dari ${result.total} engine VirusTotal.`
-        : `File "${file.name}" tidak dapat dianalisis. ${result.error || ""}`,
-      recommended_actions: result.verdict === "MALWARE" || result.verdict === "SUSPICIOUS"
+        : `File "${file.name}" tidak dapat dianalisis. ${result.error || ""}`;
+      recommended_actions = result.verdict === "MALWARE" || result.verdict === "SUSPICIOUS"
         ? [
             "JANGAN install file ini di perangkat Anda.",
             "Hapus file dari penyimpanan Anda segera.",
@@ -53,7 +63,17 @@ export async function POST(req: NextRequest) {
         : [
             "File ini aman digunakan.",
             "Namun tetap waspada terhadap file APK dari sumber tidak dikenal.",
-          ],
+          ];
+    }
+
+    const response = {
+      analysis_type: "file",
+      file_name: file.name,
+      risk_score,
+      risk_level,
+      vt_result: result,
+      behavioral_analysis,
+      recommended_actions,
       external_intelligence: {
         virustotal: result.verdict === "MALWARE" ? `🚨 ${result.malicious}/${result.total} Engines Malicious`
           : result.verdict === "SUSPICIOUS" ? `⚠️ ${result.malicious}/${result.total} Detected`
