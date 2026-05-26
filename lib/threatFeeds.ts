@@ -16,6 +16,9 @@ export type ThreatItem = {
   story?: string;
   impact?: string;
   source_type?: "REAL" | "SIMULATED";
+  urlscan_screenshot?: string;
+  urlscan_verdict?: string;
+  gsb_match?: boolean;
 };
 
 export type RegionInsight = {
@@ -436,8 +439,8 @@ Faktor Pemicu Utama (Causal Intelligence):
 - ${causalReasons[2]}`;
   
   return {
-    totalThreatsToday: total + 1225, // Mocked total including offset for startup realism
-    totalActiveCampaigns: regions.filter(r => r.severityScore > 0).length + 4,
+    totalThreatsToday: total,
+    totalActiveCampaigns: regions.filter(r => r.severityScore > 0).length,
     topCategories,
     topBrandsTargeted,
     attackVectors,

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { 
   Shield, 
   Database, 
@@ -10,7 +11,8 @@ import {
   Activity, 
   FileText, 
   ShieldCheck, 
-  AlertTriangle 
+  AlertTriangle,
+  Lock
 } from 'lucide-react';
 
 interface FooterProps {
@@ -76,6 +78,39 @@ export function Footer({ setActiveTab }: FooterProps) {
               </li>
               <li>
                 <span className="text-neutral-500 select-none">Google News Security RSS</span>
+              </li>
+              <li>
+                <a 
+                  href="https://gnews.io" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="hover:text-emerald-400 transition-colors flex items-center justify-between group"
+                >
+                  <span>GNews API</span>
+                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-neutral-500 group-hover:text-emerald-400" />
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="https://newsapi.org" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="hover:text-emerald-400 transition-colors flex items-center justify-between group"
+                >
+                  <span>NewsAPI.org</span>
+                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-neutral-500 group-hover:text-emerald-400" />
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="https://newsapi.ai" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="hover:text-emerald-400 transition-colors flex items-center justify-between group"
+                >
+                  <span>NewsAPI.ai (EventRegistry)</span>
+                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-neutral-500 group-hover:text-emerald-400" />
+                </a>
               </li>
             </ul>
           </div>
@@ -150,6 +185,16 @@ export function Footer({ setActiveTab }: FooterProps) {
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-500/60" />
                 <span>Open-source security research tool.</span>
               </div>
+              <div className="flex flex-col gap-2 mt-2 pl-1">
+                <Link href="/terms" className="hover:text-emerald-400 transition-colors flex items-center gap-2 text-xs">
+                  <FileText className="w-3 h-3 text-emerald-500/60" />
+                  Syarat & Ketentuan
+                </Link>
+                <Link href="/privacy" className="hover:text-emerald-400 transition-colors flex items-center gap-2 text-xs">
+                  <Lock className="w-3 h-3 text-emerald-500/60" />
+                  Kebijakan Privasi
+                </Link>
+              </div>
             </div>
           </div>
 
@@ -159,6 +204,10 @@ export function Footer({ setActiveTab }: FooterProps) {
         <div className="pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs font-mono text-neutral-500">
           <div className="flex flex-wrap items-center gap-2.5">
             <span>&copy; {currentYear} VERIX. All Rights Reserved.</span>
+            <span className="text-neutral-800">|</span>
+            <Link href="/terms" className="hover:text-emerald-400 transition-colors">Terms</Link>
+            <span className="text-neutral-800">|</span>
+            <Link href="/privacy" className="hover:text-emerald-400 transition-colors">Privacy</Link>
             <span className="text-neutral-800">|</span>
             <span className="flex items-center gap-1">
               <Globe className="w-3 h-3 text-neutral-600" />

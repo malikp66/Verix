@@ -2,14 +2,16 @@
 
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import dynamic from 'next/dynamic';
 import { Header } from '@/components/Header';
 import { Dashboard } from '@/components/Dashboard';
-import { ScannerView } from '@/components/ScannerView';
 import { IntelligenceProvider } from '@/components/IntelligenceProvider';
 import { SplashScreen } from '@/components/SplashScreen';
-import { ThreatPulseView } from '@/components/ThreatPulseView';
-import { SettingsView } from '@/components/SettingsView';
 import { Footer } from '@/components/Footer';
+
+const ScannerView = dynamic(() => import('@/components/ScannerView').then(m => ({ default: m.ScannerView })), { ssr: false });
+const ThreatPulseView = dynamic(() => import('@/components/ThreatPulseView').then(m => ({ default: m.ThreatPulseView })), { ssr: false });
+const SettingsView = dynamic(() => import('@/components/SettingsView').then(m => ({ default: m.SettingsView })), { ssr: false });
 
 export default function Home() {
   const [activeTab, setActiveTabInner] = useState('dashboard');

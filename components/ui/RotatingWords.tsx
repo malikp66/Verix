@@ -22,7 +22,7 @@ export function RotatingWords({ words, interval = 2800, className }: RotatingWor
   return (
     <span
       className={`relative inline-block h-[1.35em] overflow-hidden align-baseline pb-0.5 whitespace-nowrap ${className ?? ''}`}
-      style={{ minWidth: `${longestWord + 2}ch` }}
+      style={{ minWidth: `${longestWord - 2}ch` }}
     >
       <AnimatePresence mode="wait">
         <motion.span

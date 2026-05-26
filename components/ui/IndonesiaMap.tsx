@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import pathsData from './indonesia_paths.json';
+import React, { useState, useRef, useEffect } from 'react';
 
 // Define the shape of paths from JSON
 interface PathData {
@@ -57,7 +56,15 @@ export function normalizeProvinceName(title: string): string {
 
 export function IndonesiaMap({ theme, markers = [], className = '', onHoverProvince, provinceScores }: IndonesiaMapProps) {
   const [hoveredProvince, setHoveredProvince] = useState<{ title: string; x: number; y: number } | null>(null);
+  const [pathsData, setPathsData] = useState<PathData[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch('/data/indonesia_paths.json')
+      .then(res => res.json())
+      .then(data => setPathsData(data))
+      .catch(() => setPathsData([]));
+  }, []);
 
   // Styling properties depending on theme and threat severity score
   const getProvinceColors = (isIndonesian: boolean, isHovered: boolean, provinceTitle: string) => {

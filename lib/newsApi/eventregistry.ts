@@ -1,7 +1,7 @@
 import { NewsArticle, PRIMARY_QUERY } from "./types";
 
 export async function fetchEventRegistry(): Promise<NewsArticle[]> {
-  const apiKey = process.env.EVENTREGISTRY_KEY;
+  const apiKey = process.env.NEWSAPIAI;
   if (!apiKey) {
     console.warn("[EventRegistry] No API key found, skipping.");
     return [];
@@ -18,6 +18,8 @@ export async function fetchEventRegistry(): Promise<NewsArticle[]> {
     dataType: ["news", "blog"],
     forceMaxDataTimeWindow: "7",
     resultType: "articles",
+    lang: "ind",
+    sourceLocationUri: "http://en.wikipedia.org/wiki/Indonesia",
     apiKey,
   };
 

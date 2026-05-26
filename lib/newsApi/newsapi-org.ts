@@ -1,13 +1,14 @@
-import { NewsArticle, SECONDARY_QUERY } from "./types";
+import { NewsArticle, PRIMARY_QUERY } from "./types";
 
 export async function fetchNewsApiOrg(): Promise<NewsArticle[]> {
-  const apiKey = process.env.NEWSAPI_ORG_KEY;
+  const apiKey = process.env.NEWSAPIORG;
   if (!apiKey) {
     console.warn("[NewsAPI.org] No API key found, skipping.");
     return [];
   }
 
-  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(SECONDARY_QUERY)}&sortBy=publishedAt&pageSize=20&language=en&apiKey=${apiKey}`;
+  const indonesianSources = "kompas.com,detik.com,tribunnews.com,republika.co.id,tempo.co,sindonews.com,liputan6.com,merdeka.com,okezone.com,suara.com,bisnis.com,kontan.co.id,cnbcindonesia.com,cnnindonesia.com,jawapos.com,antaranews.com,mediaindonesia.com,beritasatu.com,viva.co.id";
+  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(PRIMARY_QUERY)}&sortBy=publishedAt&pageSize=20&language=id&domains=${indonesianSources}&apiKey=${apiKey}`;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {

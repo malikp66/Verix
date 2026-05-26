@@ -35,10 +35,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const alerts = intel?.tickerAlerts || [
-    "🚨 SYSTEM: Initializing threat intelligence network...",
-    "⚠ SYNC: Connecting to local intelligence nodes"
-  ];
+  const alerts = intel?.tickerAlerts ?? [];
 
   return (
     <>
@@ -52,6 +49,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
           </div>
           
           <div className="flex-1 overflow-hidden relative flex opacity-90">
+            {alerts.length > 0 ? (
             <motion.div 
               animate={{ x: [0, -2000] }} 
               transition={{ repeat: Infinity, duration: 40, ease: "linear" }}
@@ -60,7 +58,6 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
               {alerts.map((alert: string, i: number) => (
                 <span key={`alert-1-${i}`} className="text-xs font-mono text-neutral-300 tracking-wide">{alert}</span>
               ))}
-              {/* Duplicate for seamless loop */}
               {alerts.map((alert: string, i: number) => (
                 <span key={`alert-2-${i}`} className="text-xs font-mono text-neutral-300 tracking-wide">{alert}</span>
               ))}
@@ -68,7 +65,11 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
                 <span key={`alert-3-${i}`} className="text-xs font-mono text-neutral-300 tracking-wide">{alert}</span>
               ))}
             </motion.div>
-            {/* Gradient masks for smooth fade */}
+            ) : (
+              <div className="flex items-center gap-3 pl-6 h-full">
+                <span className="text-[10px] font-mono text-neutral-600">🛰️ Intelligence feed aktif — menunggu data ancaman...</span>
+              </div>
+            )}
             <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-neutral-950 to-transparent pointer-events-none" />
             <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-neutral-950 to-transparent pointer-events-none" />
           </div>

@@ -3,31 +3,31 @@ import { useAuth } from '@/components/FirebaseProvider';
 import { doc, onSnapshot, setDoc, getDocFromServer, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-const GUEST_DAILY_LIMIT = 3;
+const GUEST_MONTHLY_LIMIT = 10;
 const USER_FREE_CREDITS = 20;
-const FREE_WEEKLY_CREDITS = 3;
+const FREE_MONTHLY_CREDITS = 10;
 
 export function useAICredits() {
   const { user, loading } = useAuth();
   const [credits, setCredits] = useState<number | null>(null);
   const [isCreditLoading, setIsCreditLoading] = useState(true);
 
-  const maxCredits = user ? 999 : GUEST_DAILY_LIMIT;
+  const maxCredits = user ? 999 : GUEST_MONTHLY_LIMIT;
 
   useEffect(() => {
     if (loading) return;
 
     if (!user) {
-      // Guest logic using LocalStorage
+      // Guest logic using LocalStorage (monthly reset)
       const stored = localStorage.getItem('verix_guest_credits');
-      const lastReset = localStorage.getItem('verix_guest_reset_date');
-      const today = new Date().toDateString();
+      const lastReset = localStorage.getItem('verix_guest_reset_month');
+      const currentMonth = new Date().toISOString().slice(0, 7);
 
-      if (lastReset !== today || !stored) {
-        localStorage.setItem('verix_guest_credits', GUEST_DAILY_LIMIT.toString());
-        localStorage.setItem('verix_guest_reset_date', today);
+      if (lastReset !== currentMonth || !stored) {
+        localStorage.setItem('verix_guest_credits', GUEST_MONTHLY_LIMIT.toString());
+        localStorage.setItem('verix_guest_reset_month', currentMonth);
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setCredits(GUEST_DAILY_LIMIT);
+        setCredits(GUEST_MONTHLY_LIMIT);
       } else {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setCredits(parseInt(stored, 10));
@@ -37,10 +37,10 @@ export function useAICredits() {
       return;
     }
 
-    // User logic using Firestore with weekly bonus
+    // User logic using Firestore with monthly bonus
     setIsCreditLoading(true);
     const userRef = doc(db, 'users', user.uid);
-    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 
     const unsubscribe = onSnapshot(userRef, (snap) => {
       if (snap.exists()) {
@@ -48,19 +48,19 @@ export function useAICredits() {
 
         if (data.aiCredits === undefined) {
           // New user: initialize with free credits
-          updateDoc(userRef, { aiCredits: USER_FREE_CREDITS, lastWeeklyReset: new Date().toISOString() }).catch(err => console.error(err));
+          updateDoc(userRef, { aiCredits: USER_FREE_CREDITS, lastMonthlyReset: new Date().toISOString() }).catch(err => console.error(err));
           setCredits(USER_FREE_CREDITS);
         } else {
-          // Check weekly bonus
+          // Check monthly bonus
           const now = Date.now();
-          const lastReset = data.lastWeeklyReset
-            ? (typeof data.lastWeeklyReset === 'string' ? new Date(data.lastWeeklyReset).getTime() : data.lastWeeklyReset.toMillis?.() || 0)
+          const lastReset = data.lastMonthlyReset
+            ? (typeof data.lastMonthlyReset === 'string' ? new Date(data.lastMonthlyReset).getTime() : data.lastMonthlyReset.toMillis?.() || 0)
             : 0;
 
-          if (!lastReset || now - lastReset > WEEK_MS) {
-            const bonus = lastReset === 0 ? 0 : FREE_WEEKLY_CREDITS;
+          if (!lastReset || now - lastReset > MONTH_MS) {
+            const bonus = lastReset === 0 ? 0 : FREE_MONTHLY_CREDITS;
             const newCredits = data.aiCredits + bonus;
-            updateDoc(userRef, { aiCredits: newCredits, lastWeeklyReset: new Date().toISOString() }).catch(err => console.error(err));
+            updateDoc(userRef, { aiCredits: newCredits, lastMonthlyReset: new Date().toISOString() }).catch(err => console.error(err));
             // Set immediately so UI doesn't flash the old value
             setCredits(newCredits);
           } else {
@@ -91,6 +91,7 @@ export function useAICredits() {
         const current = snap.data().aiCredits ?? USER_FREE_CREDITS;
         if (current >= amount) {
           await updateDoc(userRef, { aiCredits: current - amount });
+          setCredits(current - amount);
           return true;
         }
       }
@@ -103,7 +104,7 @@ export function useAICredits() {
 
   const topUpCredits = async (amount: number = 10): Promise<boolean> => {
     if (!user) {
-      const current = credits ?? GUEST_DAILY_LIMIT;
+      const current = credits ?? GUEST_MONTHLY_LIMIT;
       const newCredits = current + amount;
       localStorage.setItem('verix_guest_credits', newCredits.toString());
       setCredits(newCredits);
@@ -116,6 +117,7 @@ export function useAICredits() {
       const snap = await getDocFromServer(userRef);
       const current = snap.exists() ? (snap.data().aiCredits ?? USER_FREE_CREDITS) : USER_FREE_CREDITS;
       await setDoc(userRef, { aiCredits: current + amount }, { merge: true });
+      setCredits(current + amount);
       return true;
     } catch (e) {
       console.error('Failed to top up credits in Firestore, falling back to local state:', e);
@@ -126,4 +128,3 @@ export function useAICredits() {
 
   return { credits, maxCredits, isCreditLoading, consumeCredit, topUpCredits };
 }
-

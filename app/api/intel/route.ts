@@ -2,41 +2,193 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { cacheGet, cacheSet } from '@/lib/redis';
+import { cacheGet, cacheSet, cacheZadd, cacheZrevrange, cacheZrevrangeWithScores, cacheZremrangeByRank, cacheZcard } from '@/lib/redis';
 import { readScanMetrics } from '@/lib/scanMetrics';
 import { fetchRSS, fallbackExtract, buildDeterministicReport, buildInsights } from '@/lib/intelFeeds';
 import { extractIntelAndReport } from '@/lib/ai/intelExtractor';
-import { fetchAllSources, dedupByTitle } from '@/lib/newsApi/orchestrator';
+import { fetchAllSources, dedupByTitle, normalizeText } from '@/lib/newsApi/orchestrator';
 import type { NormalizedItem } from '@/lib/newsApi/orchestrator';
 import { scoreArticle } from '@/lib/newsApi/scoring';
 
-const CACHE_REVALIDATE_TTL = 5 * 60 * 1000; // 5 minutes (SWR trigger age)
-const CACHE_EXPIRATION_TTL = 30 * 60 * 1000; // 30 minutes (full expiration age)
-const PAYLOAD_CACHE_KEY = 'intel:payload';
+const NEWS_ARCHIVE_KEY = 'news:archive';
+const CAMPAIGNS_CACHE_KEY = 'intel:campaigns';
+const PIPELINE_LAST_RUN_KEY = 'intel:pipeline:last';
+const MAX_ARCHIVE_SIZE = 500;
+const PIPELINE_INTERVAL_MS = 5 * 60 * 1000;
+const ITEM_TTL_SECONDS = 30 * 24 * 3600;
 
-async function getMonthlyReportCache(): Promise<{ report: any; month: string } | null> {
+let pendingPipeline: Promise<void> | null = null;
+
+// ─── Helpers ───
+
+function hashTitle(title: string): string {
+  return crypto.createHash('sha256').update(normalizeText(title).slice(0, 80)).digest('hex');
+}
+
+async function loadExistingHashes(): Promise<Set<string>> {
+  const members = await cacheZrevrange(NEWS_ARCHIVE_KEY, 0, -1);
+  return new Set(members);
+}
+
+// ─── Pipeline ───
+
+async function runPipeline(): Promise<void> {
+  const googleNewsUrl = "https://news.google.com/rss/search?q=scam+OR+penipuan+OR+phishing+OR+hoax+indonesia&hl=id&gl=ID&ceid=ID:id";
+  const phishingUrl = "https://news.google.com/rss/search?q=phishing+scam+bank+indonesia+APK&hl=id&gl=ID&ceid=ID:id";
+  const antaraUrl = "https://www.antaranews.com/rss/top-news.xml";
+
+  console.log("[Intel Pipeline] Fetching news feeds + News APIs...");
+
+  const newsApiItems = await fetchAllSources();
+
+  const cyberKeywords = /scam|phish(ing)?|penipuan|fraud|malware|APK|QRIS|OTP|deepfake|siber|bobol|hack(er|ing)?|carding|rekening|kejahatan\s*digital|keamanan\s*siber|cyber\s*(crime|sec|fraud)|ransomware|social\s*engineering|phising|pencucian|skimming|spoofing|identity\s*theft|pencurian\s*data|bocor\s*data|pengelabuan|modus\s*baru|investasi\s*bodong|pinjol\s*ilegal|judol|slot\s*online|robot\s*trading/i;
+
+  const [googleNewsItems, phishingItems, antaraItems] = await Promise.all([
+    fetchRSS(googleNewsUrl).then(items => items.map(i => ({ ...i, source: "news.google.com" }))),
+    fetchRSS(phishingUrl).then(items => items.map(i => ({ ...i, source: "news.google.com" }))),
+    fetchRSS(antaraUrl).then(items =>
+      items.map(i => ({ ...i, source: "antaranews.com" })).filter(item => cyberKeywords.test(item.title))
+    )
+  ]);
+
+  const rssNormalized: NormalizedItem[] = [...googleNewsItems, ...phishingItems, ...antaraItems].map(item => {
+    const { risk_score, severity } = scoreArticle(item.title, "", "");
+    return {
+      title: item.title,
+      link: item.link,
+      date: item.date,
+      source: item.source,
+      description: "",
+      risk_score,
+      severity,
+    };
+  });
+
+  let allItems: NormalizedItem[] = [...newsApiItems, ...rssNormalized];
+  if (allItems.length === 0) {
+    console.warn("[Intel Pipeline] No items from any source. Skipping pipeline.");
+    return;
+  }
+
+  allItems = dedupByTitle(allItems) as NormalizedItem[];
+  console.log(`[Intel Pipeline] ${allItems.length} unique items after dedup.`);
+
+  const existingHashes = await loadExistingHashes();
+  let newCount = 0;
+
+  for (const item of allItems) {
+    const h = hashTitle(item.title);
+    if (existingHashes.has(h)) continue;
+
+    const timestamp = item.date ? new Date(item.date).getTime() : Date.now();
+
+    const enriched = fallbackExtract(item.title);
+    const entry = {
+      id: `intel-${crypto.randomUUID()}`,
+      title: item.title,
+      link: item.link,
+      source: item.source,
+      publishedAt: new Date(item.date).toISOString(),
+      ...enriched,
+      region: "",
+      confidence: 50,
+      source_type: "REAL" as const,
+    };
+
+    await cacheZadd(NEWS_ARCHIVE_KEY, timestamp, h);
+    await cacheSet(`news:item:${h}`, entry, ITEM_TTL_SECONDS);
+    existingHashes.add(h);
+    newCount++;
+  }
+
+  if (newCount > 0) {
+    const total = await cacheZcard(NEWS_ARCHIVE_KEY);
+    if (total > MAX_ARCHIVE_SIZE) {
+      await cacheZremrangeByRank(NEWS_ARCHIVE_KEY, 0, total - MAX_ARCHIVE_SIZE - 1);
+    }
+    console.log(`[Intel Pipeline] Added ${newCount} new items (archive: ${Math.min(total, MAX_ARCHIVE_SIZE)}).`);
+  } else {
+    console.log("[Intel Pipeline] No new items to add.");
+  }
+
+  // AI enrichment for top 20 newest items that haven't been enriched yet
+  const allHashes = await cacheZrevrange(NEWS_ARCHIVE_KEY, 0, 19);
+  const aiBatch: any[] = [];
+  for (const h of allHashes) {
+    const item = await cacheGet<any>(`news:item:${h}`);
+    if (item) aiBatch.push(item);
+  }
+
+  if (aiBatch.length >= 5) {
+    try {
+      console.log(`[Intel Pipeline] Triggering AI enrichment for ${aiBatch.length} items...`);
+      const aiResult = await extractIntelAndReport(aiBatch.map((item: any) => ({
+        title: item.title,
+        link: item.link,
+        date: item.publishedAt,
+        source: item.source,
+        description: "",
+      })));
+
+      if (aiResult && aiResult.enriched) {
+        for (let idx = 0; idx < aiBatch.length; idx++) {
+          const aiInfo = aiResult.enriched[idx];
+          if (aiInfo) {
+            const h = allHashes[idx];
+            aiBatch[idx] = {
+              ...aiBatch[idx],
+              type: aiInfo.type || aiBatch[idx].type,
+              vector: aiInfo.vector || aiBatch[idx].vector,
+              target: aiInfo.target || aiBatch[idx].target,
+              severity: aiInfo.severity || aiBatch[idx].severity,
+              summary: aiInfo.summary || aiBatch[idx].summary,
+              region: aiInfo.region || aiBatch[idx].region,
+              confidence: typeof aiInfo.confidence === 'number' ? aiInfo.confidence : aiBatch[idx].confidence,
+            };
+            await cacheSet(`news:item:${h}`, aiBatch[idx], ITEM_TTL_SECONDS);
+          }
+        }
+        if (aiResult.report) {
+          const currentMonth = new Date().toISOString().slice(0, 7);
+          await cacheSet(`intel:report:${currentMonth}`, { report: aiResult.report, month: currentMonth }, 31 * 24 * 3600);
+        }
+        console.log(`[Intel Pipeline] AI enrichment completed for ${aiBatch.length} items.`);
+      }
+    } catch (error) {
+      console.warn("[Intel Pipeline] AI enrichment failed (non-blocking):", error);
+    }
+  }
+
+  // Rebuild campaigns cache
+  await rebuildCampaignsCache();
+
+  await cacheSet(PIPELINE_LAST_RUN_KEY, Date.now(), 3600);
+  console.log("[Intel Pipeline] Pipeline completed.");
+}
+
+async function rebuildCampaignsCache(): Promise<void> {
+  const allHashes = await cacheZrevrange(NEWS_ARCHIVE_KEY, 0, -1);
+  const items: any[] = [];
+  for (const h of allHashes) {
+    const item = await cacheGet<any>(`news:item:${h}`);
+    if (item) items.push(item);
+  }
+
+  const campaigns = buildCampaigns(items);
+  const regionMap = buildRegionMap(items);
+  const insights = buildInsights(items);
+  const report = await getMonthlyReport() || buildDeterministicReport(items);
+
+  await cacheSet(CAMPAIGNS_CACHE_KEY, { campaigns, region_map: { regions: regionMap }, insights, report }, 3600);
+}
+
+async function getMonthlyReport(): Promise<any | null> {
   try {
     const currentMonth = new Date().toISOString().slice(0, 7);
     const cached = await cacheGet<{ report: any; month: string }>(`intel:report:${currentMonth}`);
-    if (cached && cached.month === currentMonth) {
-      console.log(`[Intel Pipeline] Using monthly cached report (${currentMonth}).`);
-      return cached;
-    }
+    if (cached && cached.month === currentMonth) return cached.report;
     return null;
-  } catch {
-    return null;
-  }
-}
-
-async function saveMonthlyReportCache(report: any): Promise<void> {
-  try {
-    const month = new Date().toISOString().slice(0, 7);
-    const data = { report, month, generatedAt: new Date().toISOString() };
-    await cacheSet(`intel:report:${month}`, data, 31 * 24 * 3600);
-    console.log('[Intel Pipeline] Monthly report cache saved.');
-  } catch (e) {
-    console.warn('[Intel Pipeline] Failed to save monthly report cache:', e);
-  }
+  } catch { return null; }
 }
 
 function buildCampaigns(items: any[]): { brand: string; type: string; count: number; severity: string }[] {
@@ -49,9 +201,7 @@ function buildCampaigns(items: any[]): { brand: string; type: string; count: num
     if (existing) {
       existing.count++;
       const sevOrder = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
-      if (sevOrder.indexOf(item.severity) > sevOrder.indexOf(existing.severity)) {
-        existing.severity = item.severity;
-      }
+      if (sevOrder.indexOf(item.severity) > sevOrder.indexOf(existing.severity)) existing.severity = item.severity;
     } else {
       groups.set(key, { brand: target, type, count: 1, severity: item.severity || "LOW" });
     }
@@ -67,9 +217,7 @@ function buildRegionMap(items: any[]): { region: string; count: number; severity
     if (existing) {
       existing.count++;
       const sevOrder = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
-      if (sevOrder.indexOf(item.severity) > sevOrder.indexOf(existing.severity)) {
-        existing.severity = item.severity;
-      }
+      if (sevOrder.indexOf(item.severity) > sevOrder.indexOf(existing.severity)) existing.severity = item.severity;
     } else {
       groups.set(region, { region, count: 1, severity: item.severity || "LOW" });
     }
@@ -77,26 +225,46 @@ function buildRegionMap(items: any[]): { region: string; count: number; severity
   return Array.from(groups.values()).sort((a, b) => b.count - a.count);
 }
 
-function buildFinalPayload(enrichedItems: any[], report: any) {
-  const tickerAlerts = enrichedItems.slice(0, 5).map(item => {
+// ─── GET Handler ───
+
+export async function GET() {
+  // 1. Read latest 100 items from sorted set
+  const latest = await cacheZrevrangeWithScores(NEWS_ARCHIVE_KEY, 0, 99);
+  const items: any[] = [];
+  for (const { member: h } of latest) {
+    const item = await cacheGet<any>(`news:item:${h}`);
+    if (item) items.push(item);
+  }
+
+  // 2. Read campaigns cache
+  let campaignsCache = await cacheGet<any>(CAMPAIGNS_CACHE_KEY);
+
+  // 3. If archive is empty (first run), run pipeline blocking once
+  if (items.length === 0) {
+    console.log("[Intel Pipeline] Archive empty, running initial pipeline...");
+    await runPipeline();
+    const retry = await cacheZrevrangeWithScores(NEWS_ARCHIVE_KEY, 0, 99);
+    for (const { member: h } of retry) {
+      const item = await cacheGet<any>(`news:item:${h}`);
+      if (item) items.push(item);
+    }
+    campaignsCache = await cacheGet<any>(CAMPAIGNS_CACHE_KEY);
+  }
+
+  // 4. Trigger background pipeline if >5 min since last run
+  const lastRun = await cacheGet<number>(PIPELINE_LAST_RUN_KEY);
+  if (!lastRun || Date.now() - lastRun > PIPELINE_INTERVAL_MS) {
+    triggerBackgroundPipeline().catch(e => console.error("[Intel Pipeline] Background pipeline failed:", e));
+  }
+
+  // 5. Build payload
+  const metrics = readScanMetrics();
+  const tickerAlerts = items.slice(0, 5).map(item => {
     const icon = item.severity === "CRITICAL" ? "🚨" : item.severity === "HIGH" ? "⚠️" : "🛑";
     return `${icon} Terkini: Modus ${item.type} berkedok ${item.title.slice(0, 60)}... (${item.source})`;
   });
 
-  if (tickerAlerts.length < 5) {
-    const fallbackTicker = [
-      "🚨 Trend: Modus 'Salah Transfer' meningkat hari ini di area Jabodetabek",
-      "⚠️ Intel: Phishing web pencurian kredensial menyerupai klikBCA terdeteksi aktif",
-      "🛑 Proteksi: Sistem perlindungan VERIX aktif memantau URL berbahaya",
-      "🔥 Awas: APK berkedok 'Undangan Digital' menyebar masif via pesan WhatsApp",
-      "📡 Laporan: Modus social engineering telepon CS palsu meningkat"
-    ];
-    while (tickerAlerts.length < 5) {
-      tickerAlerts.push(fallbackTicker[tickerAlerts.length]);
-    }
-  }
-
-  const dashboardAlerts = enrichedItems.slice(0, 4).map((item, index) => {
+  const dashboardAlerts = items.slice(0, 4).map((item, index) => {
     const valueTypes = ["threat", "victims", "new", "cases"];
     const times = ["Baru saja", "5m ago", "12m ago", "20m ago"];
     let shortTitle = item.title.split(' ').slice(0, 4).join(' ');
@@ -112,268 +280,42 @@ function buildFinalPayload(enrichedItems: any[], report: any) {
     };
   });
 
-  const metrics = readScanMetrics();
-  const ecosystemStats = {
-    virusTotal: metrics.totalScans,
-    safeBrowsing: metrics.totalScans,
-    geminiVision: metrics.imageScans,
-    urlScan: metrics.totalScans,
-    newsApi: enrichedItems.filter(i =>
-      i.source && !i.source.includes("news.google") && !i.source.includes("antaranews")
-    ).length
-  };
+  const campaignsData = campaignsCache || { campaigns: [], region_map: { regions: [] }, insights: { total: 0, topTypes: [], topVectors: [] }, report: null };
 
-  const globalThreatsDetected = metrics.highRiskScans;
-  const accountsSaved = metrics.totalScans;
-  const threatPctChange = accountsSaved > 0 ? Math.round((globalThreatsDetected / accountsSaved) * 100) : 0;
-
-  const campaigns = buildCampaigns(enrichedItems);
-  const region_map = buildRegionMap(enrichedItems);
-
-  return {
+  return NextResponse.json({
     success: true,
-    data: enrichedItems,
-    insights: buildInsights(enrichedItems),
-    report,
+    data: items,
+    insights: campaignsData.insights,
+    report: campaignsData.report,
     tickerAlerts,
     dashboardAlerts,
-    ecosystemStats,
-    globalThreatsDetected,
-    accountsSaved,
-    threatPctChange,
-    campaigns,
-    threat_map: { regions: region_map },
-    lastSynced: new Date().toISOString()
-  };
-}
-
-// ----------------------------
-// 📊 AGGREGATION & PIPELINE
-// ----------------------------
-async function generateCuratedIntelligence(): Promise<any> {
-  const googleNewsUrl = "https://news.google.com/rss/search?q=scam+OR+penipuan+OR+phishing+OR+hoax+indonesia&hl=id&gl=ID&ceid=ID:id";
-  const phishingUrl = "https://news.google.com/rss/search?q=phishing+scam+bank+indonesia+APK&hl=id&gl=ID&ceid=ID:id";
-  const antaraUrl = "https://www.antaranews.com/rss/terkini.xml";
-
-  console.log("[Intel Pipeline] Fetching news feeds + News APIs...");
-
-  // 1. Fetch news API articles (24h cached server-side)
-  const newsApiItems = await fetchAllSources();
-
-  // 2. Fetch RSS feeds
-  const [googleNewsItems, phishingItems, antaraItems] = await Promise.all([
-    fetchRSS(googleNewsUrl).then(items => items.map(i => ({ ...i, source: "news.google.com" }))),
-    fetchRSS(phishingUrl).then(items => items.map(i => ({ ...i, source: "news.google.com" }))),
-    fetchRSS(antaraUrl).then(items => items.map(i => ({ ...i, source: "antaranews.com" })))
-  ]);
-
-  // 3. Convert RSS items to NormalizedItem format with scoring
-  const rssNormalized: NormalizedItem[] = [...googleNewsItems, ...phishingItems, ...antaraItems].map(item => {
-    const { risk_score, severity } = scoreArticle(item.title, "", "");
-    return {
-      title: item.title,
-      link: item.link,
-      date: item.date,
-      source: item.source,
-      description: "",
-      risk_score,
-      severity,
-    };
-  });
-
-  const sourceCount = [googleNewsItems.length > 0, phishingItems.length > 0, antaraItems.length > 0].filter(Boolean).length;
-  console.log(`[Intel Pipeline] ${newsApiItems.length} news API items, ${rssNormalized.length} RSS items from ${sourceCount}/3 RSS sources`);
-
-  // 4. Merge + dedup
-  let allItems: NormalizedItem[] = [...newsApiItems, ...rssNormalized];
-  if (allItems.length === 0) {
-    console.warn("[Intel Pipeline] No items from any source. Using mock baseline.");
-    return getBaselineMockPayload();
-  }
-
-  allItems = dedupByTitle(allItems) as NormalizedItem[];
-  console.log(`[Intel Pipeline] ${allItems.length} unique items after dedup.`);
-
-  // 5. If very few items, skip AI extraction (save cost) → use deterministic only
-  if (allItems.length < 5) {
-    console.warn(`[Intel Pipeline] Only ${allItems.length} unique items (insufficient), using deterministic extraction.`);
-    const detItems = allItems.map(item => {
-      const fi = fallbackExtract(item.title);
-      return {
-        id: `intel-${crypto.randomUUID()}`, title: item.title, source: item.source, link: item.link,
-        publishedAt: new Date(item.date).toISOString(), ...fi, source_type: "REAL" as const,
-        region: "", confidence: 50,
-      };
-    });
-    return buildFinalPayload(detItems, buildDeterministicReport(detItems));
-  }
-
-  // 6. Take top 15 for AI processing (sorted by risk_score desc)
-  const processingItems = allItems.sort((a, b) => b.risk_score - a.risk_score).slice(0, 15);
-  
-  let enrichedItems: any[] = [];
-  let report: any = null;
-
-  // === MONTHLY REPORT CACHE ===
-  const monthlyCache = await getMonthlyReportCache();
-
-  try {
-    console.log(`[Intel Pipeline] Triggering AI extraction for ${processingItems.length} items...`);
-    const aiResult = await extractIntelAndReport(processingItems);
-    
-    if (aiResult && aiResult.enriched) {
-      enrichedItems = processingItems.map((item, idx) => {
-        const aiInfo = aiResult.enriched[idx] || fallbackExtract(item.title);
-        return {
-          id: `intel-${crypto.randomUUID()}`, title: item.title, source: item.source, link: item.link,
-          publishedAt: new Date(item.date).toISOString(), type: aiInfo.type, vector: aiInfo.vector,
-          target: aiInfo.target || "General", severity: aiInfo.severity, summary: aiInfo.summary,
-          region: aiInfo.region || "", confidence: typeof aiInfo.confidence === 'number' ? aiInfo.confidence : 50,
-          source_type: "REAL" as const
-        };
-      });
-    } else {
-      throw new Error("Empty or malformed result from AI");
-    }
-
-    // Use monthly cached report if available, otherwise save the new one
-    if (monthlyCache) {
-      report = monthlyCache.report;
-    } else if (aiResult.report) {
-      report = aiResult.report;
-      await saveMonthlyReportCache(report);
-    } else {
-      report = buildDeterministicReport(enrichedItems);
-    }
-  } catch (error) {
-    console.warn("[Intel Pipeline] AI extraction failed, running deterministic offline extractor:", error);
-    enrichedItems = processingItems.map(item => {
-      const fi = fallbackExtract(item.title);
-      return {
-        id: `intel-${crypto.randomUUID()}`, title: item.title, source: item.source, link: item.link,
-        publishedAt: new Date(item.date).toISOString(), ...fi, source_type: "REAL" as const,
-        region: "", confidence: 50
-      };
-    });
-    report = monthlyCache ? monthlyCache.report : buildDeterministicReport(enrichedItems);
-  }
-
-  return buildFinalPayload(enrichedItems, report);
-}
-
-// ----------------------------
-// 🛡️ MOCK BASELINE PAYLOAD
-// ----------------------------
-function getBaselineMockPayload() {
-  const metrics = readScanMetrics();
-  return {
-    success: true,
-    data: [],
-    insights: { total: 0, topTypes: [], topVectors: [] },
-    report: {
-      headline: "Situasi Keamanan Siber Stabil",
-      summary: "Tidak ada ancaman siber berskala nasional yang menonjol terdeteksi dari feed intelijen 24 jam terakhir.",
-      key_trends: ["Aktivitas malware konvensional terpantau rendah.", "Kampanye spam phising stabil.", "Tidak ada anomali lalu lintas data."],
-      attack_vectors: ["LINK"],
-      risk_assessment: "LOW",
-      recommended_actions: ["Lakukan pembaruan sistem operasi secara rutin.", "Gunakan kata sandi unik untuk setiap platform digital."]
-    },
-    tickerAlerts: [
-      "🚨 Trend: Modus 'Salah Transfer' meningkat hari ini di area Jabodetabek",
-      "⚠️ Intel: Phishing web pencurian kredensial menyerupai klikBCA terdeteksi aktif",
-      "🛑 Proteksi: Sistem perlindungan VERIX aktif memantau URL berbahaya",
-      "🔥 Awas: APK berkedok 'Undangan Digital' menyebar masif via pesan WhatsApp",
-      "📡 Laporan: Modus social engineering telepon CS palsu mengatasnamakan e-commerce meningkat"
-    ],
-    dashboardAlerts: [
-      { title: "Phishing BCA Mobile Clone", changePct: 42, type: "critical", time: "Baru saja", valueType: "threat" },
-      { title: "APK Undangan Pernikahan", changePct: 15, type: "danger", time: "5m ago", valueType: "victims" },
-      { title: "Voice Cloning Family Scam", changePct: 89, type: "warning", time: "12m ago", valueType: "new" },
-      { title: "Fake QRIS Merchant", changePct: 12, type: "warning", time: "25m ago", valueType: "cases" }
-    ],
     ecosystemStats: {
       virusTotal: metrics.totalScans,
       safeBrowsing: metrics.totalScans,
       geminiVision: metrics.imageScans,
       urlScan: metrics.totalScans,
-      newsApi: 12
+      newsApi: items.filter(i => i.source && !i.source.includes("news.google") && !i.source.includes("antaranews")).length,
     },
     globalThreatsDetected: metrics.highRiskScans,
     accountsSaved: metrics.totalScans,
     threatPctChange: metrics.totalScans > 0 ? Math.round((metrics.highRiskScans / metrics.totalScans) * 100) : 0,
-    lastSynced: new Date().toISOString()
-  };
+    campaigns: campaignsData.campaigns,
+    threat_map: campaignsData.region_map,
+    lastSynced: new Date().toISOString(),
+  }, {
+    headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' }
+  });
 }
 
-// ----------------------------
-// 🔄 BACKGROUND REBUILD (SWR)
-// ----------------------------
-async function triggerBackgroundRebuild() {
+async function triggerBackgroundPipeline() {
+  if (pendingPipeline) {
+    console.log("[Intel Pipeline] Reusing in-flight pipeline.");
+    return pendingPipeline;
+  }
+  pendingPipeline = runPipeline();
   try {
-    console.log("[SWR Cache] Running background threat intel revalidation...");
-    const freshData = await generateCuratedIntelligence();
-    await cacheSet(PAYLOAD_CACHE_KEY, { fetchedAt: Date.now(), data: freshData }, Math.ceil(CACHE_EXPIRATION_TTL / 1000));
-    console.log("[SWR Cache] Background revalidation completed & cache updated.");
-  } catch (err) {
-    console.error("[SWR Cache] Background revalidation pipeline failed:", err);
-  }
-}
-
-// ----------------------------
-// 📥 GET CONTROLLER (SWR CACHED)
-// ----------------------------
-export async function GET() {
-  const now = Date.now();
-  let cachedData: any = null;
-  let cacheTime = 0;
-
-  try {
-    const cached = await cacheGet<{ fetchedAt: number; data: any }>(PAYLOAD_CACHE_KEY);
-    if (cached) {
-      cachedData = cached.data;
-      cacheTime = cached.fetchedAt;
-    }
-  } catch (e) {
-    console.warn("[SWR Cache] Redis read failed:", e);
-  }
-
-  const age = now - cacheTime;
-
-  // 1. Fresh Hit (less than 5 mins old)
-  if (cachedData && age < CACHE_REVALIDATE_TTL) {
-    console.log(`[SWR Cache] Fresh hit! serving cache (${Math.round(age / 1000)}s old).`);
-    return NextResponse.json(cachedData, {
-      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' }
-    });
-  }
-
-  // 2. Stale hit (5 to 30 mins old) - serve immediately and trigger background refresh
-  if (cachedData && age < CACHE_EXPIRATION_TTL) {
-    console.log(`[SWR Cache] Stale hit! serving cache (${Math.round(age / 60000)}m old) & triggering revalidation.`);
-    triggerBackgroundRebuild().catch(e => console.error("[SWR Cache] Background rebuild trigger failed:", e));
-    return NextResponse.json(cachedData, {
-      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' }
-    });
-  }
-
-  // 3. Cache expired or missing - blocking refresh
-  console.log("[SWR Cache] Cache expired or missing. Running blocking intelligence refresh...");
-  try {
-    const freshData = await generateCuratedIntelligence();
-    await cacheSet(PAYLOAD_CACHE_KEY, { fetchedAt: now, data: freshData }, Math.ceil(CACHE_EXPIRATION_TTL / 1000));
-
-    return NextResponse.json(freshData, {
-      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' }
-    });
-  } catch (err) {
-    console.error("[SWR Cache] Blocking refresh failed, serving stale cache or mock:", err);
-    if (cachedData) {
-      return NextResponse.json(cachedData, {
-        headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' }
-      });
-    }
-    return NextResponse.json(getBaselineMockPayload(), {
-      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' }
-    });
+    await pendingPipeline;
+  } finally {
+    pendingPipeline = null;
   }
 }

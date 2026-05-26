@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 const userCredits = new Map<string, { used: number, max: number, lastReset: number }>();
 
 const LIMITS = {
-  GUEST: 3,
+  GUEST: 10,
   VERIFIED: 20,
   PREMIUM: 100
 };

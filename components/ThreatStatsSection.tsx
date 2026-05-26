@@ -1,48 +1,34 @@
 "use client"
 
-import { useIntel } from "./IntelligenceProvider"
-import { NumberTicker } from "./ui/number-ticker"
+import { motion } from "motion/react"
+import { ShieldAlert, FileWarning, Scan, UserCheck, Users, Smartphone, ShoppingBag, AlertCircle, ArrowUpRight, Satellite } from 'lucide-react'
 import { Marquee } from "./ui/marquee"
 import { cn } from "@/lib/utils"
-import { motion } from "motion/react"
-import { ShieldAlert, FileWarning, Scan, UserCheck, Users, Smartphone, ShoppingBag, AlertCircle, ArrowUpRight } from 'lucide-react'
+import { useIntel } from "./IntelligenceProvider"
+import { useState, useEffect } from "react"
+import { EmptyState } from "./ui/EmptyState"
 
-const stats = [
+const mainStats = [
   {
-    value: 1.9,
-    decimalPlaces: 1 as const,
+    value: "3.64",
+    suffix: "B+",
     prefix: "",
-    suffix: "M+",
-    label: "Kasus kejahatan digital",
-    sub: "ditangani di Indonesia",
-    color: "text-cyan-400",
-    borderColor: "border-cyan-500/20",
-    hoverBorder: "hover:border-cyan-400/40",
-    glowColor: "rgba(34,211,238,0.15)",
+    label: "Anomali serangan siber",
+    sub: "terdeteksi BSSN",
   },
   {
-    value: 2.3,
-    decimalPlaces: 1 as const,
-    prefix: "Rp ",
+    value: "4.6",
     suffix: "T+",
-    label: "Total kerugian",
-    sub: "akibat penipuan online",
-    color: "text-red-400",
-    borderColor: "border-red-500/20",
-    hoverBorder: "hover:border-red-400/40",
-    glowColor: "rgba(248,113,113,0.15)",
+    prefix: "Rp ",
+    label: "Kerugian akibat",
+    sub: "penipuan digital",
   },
   {
-    value: 1.6,
-    decimalPlaces: 1 as const,
+    value: "548",
+    suffix: "K+",
     prefix: "",
-    suffix: "M+",
-    label: "Situs berbahaya",
-    sub: "diblokir oleh Kominfo",
-    color: "text-yellow-400",
-    borderColor: "border-yellow-500/20",
-    hoverBorder: "hover:border-yellow-400/40",
-    glowColor: "rgba(250,204,21,0.15)",
+    label: "Laporan scam digital",
+    sub: "diterima IASC",
   },
 ]
 
@@ -61,18 +47,7 @@ function getRelativeTime(dateStr: string) {
   }
 }
 
-const now = Date.now();
-const fallbackNews = [
-  { title: "Phishing BCA Mobile Clone Menyasar 150+ Nasabah Baru", type: "Phishing", link: "https://news.google.com", publishedAt: new Date(now - 5*60000).toISOString() },
-  { title: "APK Undangan Nikah Palsu Menyebar Masif via WhatsApp Group", type: "APK Malware", link: "https://news.google.com", publishedAt: new Date(now - 12*60000).toISOString() },
-  { title: "QRIS Palsu Masjid Raya Ditemukan di 3 Kota Besar", type: "QRIS Scam", link: "https://news.google.com", publishedAt: new Date(now - 25*60000).toISOString() },
-  { title: "Pinjol Ilegal Gunakan AI Deepfake untuk Tagih Utang", type: "Deepfake", link: "https://news.google.com", publishedAt: new Date(now - 40*60000).toISOString() },
-  { title: "Penipuan Lowongan Kerja Like & Share Targetkan Pelajar", type: "Social Engineering", link: "https://news.google.com", publishedAt: new Date(now - 60*60000).toISOString() },
-  { title: "Situs Palsu BPJS Kesehatan Curi Data 5.000+ Pengguna", type: "Phishing", link: "https://news.google.com", publishedAt: new Date(now - 90*60000).toISOString() },
-  { title: "Modus OTP Fraud via SMS Spoofing Menyerang Nasabah Bank", type: "OTP Fraud", link: "https://news.google.com", publishedAt: new Date(now - 120*60000).toISOString() },
-  { title: "Penipuan COD Fiktif Menggunakan Nomor Resi Palsu", type: "E-Commerce Scam", link: "https://news.google.com", publishedAt: new Date(now - 180*60000).toISOString() },
-  { title: "Deepfake CEO Video Call Tipu Transfer Rp 1,2 Miliar", type: "Deepfake", link: "https://news.google.com", publishedAt: new Date(now - 240*60000).toISOString() },
-]
+
 
 const typeConfig: Record<string, { icon: React.ReactNode; bg: string; color: string; hoverBorder: string; btn: string }> = {
   Phishing:           { icon: <ShieldAlert className="w-3.5 h-3.5" />, bg: 'bg-red-500/10',      color: 'text-red-400',      hoverBorder: 'hover:border-red-500/20',      btn: 'bg-red-500/10 hover:bg-red-500/20 text-red-400/70 hover:text-red-400' },
@@ -128,16 +103,31 @@ function ReviewCard({ title, type, link, publishedAt }: { title: string; type?: 
 
 export function ThreatStatsSection() {
   const intel = useIntel()
+  const [accItems, setAccItems] = useState<any[]>([])
 
-  const newsItems =
-    intel?.data && intel.data.length > 0
-      ? intel.data.map((item: any) => ({
-          title: item.title,
-          type: item.type || "SCAM ALERT",
-          link: item.link,
-          publishedAt: item.publishedAt,
-        }))
-      : fallbackNews
+  useEffect(() => {
+    if (intel?.data && intel.data.length > 0) {
+      setAccItems(prev => {
+        const existing = new Set(prev.map((i: any) => i.title))
+        const fresh = intel.data
+          .filter((i: any) => !existing.has(i.title))
+          .map((i: any) => ({ title: i.title, type: i.type || "SCAM ALERT", link: i.link, publishedAt: i.publishedAt }))
+        return [...fresh, ...prev]
+      })
+    }
+  }, [intel])
+
+  if (accItems.length === 0) return (
+    <section className="py-24 px-6 md:px-12 max-w-7xl mx-auto relative">
+      <EmptyState
+        icon={Satellite}
+        title="Memantau Lanskap Ancaman"
+        description="VERIX secara aktif memonitor intelijen ancaman siber Indonesia. Data akan muncul secara real-time begitu terdeteksi."
+      />
+    </section>
+  );
+
+  const newsItems = accItems
 
   const split = Math.ceil(newsItems.length / 3)
   const col1 = newsItems.slice(0, split)
@@ -151,7 +141,7 @@ export function ThreatStatsSection() {
   return (
     <section className="py-24 px-6 md:px-12 max-w-7xl mx-auto relative">
       {/* Background glow */}
-      <div className="absolute top-40 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-emerald-500/[0.02] blur-[180px] rounded-full pointer-events-none" />
+      <div className="absolute top-40 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-red-500/[0.02] blur-[180px] rounded-full pointer-events-none" />
 
       <div className="grid md:grid-cols-2 gap-16 items-center relative z-10">
         {/* ──── LEFT ──── */}
@@ -159,66 +149,42 @@ export function ThreatStatsSection() {
           {/* LIVE badge */}
           <div className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-full px-3 py-1">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
             </span>
-            <span className="text-[10px] font-mono text-emerald-400 tracking-wider">LIVE INCIDENTS</span>
-          </div>
-
-          {/* Hook headline */}
-          <div className="space-y-2">
-            <p className="text-base text-neutral-300 font-medium italic leading-relaxed max-w-md">
-              &ldquo;Masalah ini bukan kecil. Ini skala nasional.&rdquo;
-            </p>
+            <span className="text-[10px] font-mono text-red-400 tracking-wider font-semibold uppercase">Statistik Valid</span>
           </div>
 
           {/* Headline */}
           <h2 className="text-3xl md:text-4xl font-display font-semibold tracking-tight text-white leading-[1.2]">
-            Ancaman Digital di Indonesia Meningkat Drastis.
+            Ancaman Digital di Indonesia Meningkat Drastis
           </h2>
 
           {/* Subtext */}
           <p className="text-neutral-400 leading-relaxed max-w-lg text-sm">
-            Phishing, APK malware, dan penipuan sosial terus berkembang  menargetkan jutaan pengguna
-            setiap hari tanpa disadari. Data terbaru menunjukkan peningkatan eksponensial dalam serangan
-            siber di Indonesia.
+            &ldquo;Scam berbasis AI, phishing, malware APK, dan social engineering kini menyerang jutaan pengguna Indonesia setiap tahun.&rdquo;
           </p>
 
-          {/* Stats grid  3 equal columns */}
+          {/* Stats grid — 3 columns, danger red */}
           <div className="grid grid-cols-3 gap-3 pt-2">
-            {stats.map((stat, i) => (
+            {mainStats.map((stat, i) => (
               <motion.div
                 key={stat.label}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.15, duration: 0.5 }}
-                className={cn(
-                  "group relative rounded-2xl border p-4 transition-all duration-300",
-                  "bg-white/[0.02] backdrop-blur-sm",
-                  stat.borderColor,
-                  stat.hoverBorder,
-                  "hover:scale-[1.02]"
-                )}
+                className="group relative rounded-2xl border border-red-500/20 bg-white/[0.02] backdrop-blur-sm p-4 transition-all duration-300 hover:scale-[1.02] hover:border-red-400/40"
               >
-                {/* Hover glow */}
                 <div
                   className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-                  style={{
-                    background: `radial-gradient(160px circle at center, ${stat.glowColor}, transparent)`,
-                  }}
+                  style={{ background: `radial-gradient(160px circle at center, rgba(248,113,113,0.12), transparent)` }}
                 />
                 <div className="relative z-10">
-                  <div className={cn("text-2xl md:text-3xl font-display font-bold tracking-tight mb-1 truncate", stat.color)}>
-                    {stat.prefix}
-                    <NumberTicker
-                      value={stat.value}
-                      decimalPlaces={stat.decimalPlaces}
-                      className={stat.color}
-                    />
-                    {stat.suffix}
+                  <div className="text-2xl md:text-3xl font-display font-bold tracking-tight mb-1 truncate text-red-400">
+                    {stat.prefix}{stat.value}{stat.suffix}
                   </div>
-                  <p className="text-neutral-300 text-xs sm:text-sm font-medium leading-tight">{stat.label}</p>
+                  <p className="text-neutral-200 text-xs sm:text-sm font-medium leading-tight">{stat.label}</p>
                   <p className="text-neutral-500 text-[10px] sm:text-xs mt-0.5 leading-tight">{stat.sub}</p>
                 </div>
               </motion.div>
@@ -227,11 +193,11 @@ export function ThreatStatsSection() {
 
           {/* Footnote */}
           <p className="text-[11px] text-neutral-600 max-w-md">
-            Berdasarkan laporan Kominfo, BSSN, dan riset industri keamanan siber
+            Data berdasarkan BSSN, OJK, IASC, dan laporan nasional 2025–2026
           </p>
         </div>
 
-        {/* ──── RIGHT  3D Vertical Marquee ──── */}
+        {/* ──── RIGHT: 3D Vertical Marquee with Live News ──── */}
         <div className="relative h-[520px] w-full overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.01] [perspective:300px]">
           <div
             className="flex flex-row items-center gap-3 absolute inset-0"
@@ -256,7 +222,7 @@ export function ThreatStatsSection() {
             </Marquee>
           </div>
 
-          {/* Gradient overlays  all 4 sides */}
+          {/* Gradient overlays — all 4 sides */}
           <div className="pointer-events-none absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-neutral-950 to-transparent z-10" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-neutral-950 to-transparent z-10" />
           <div className="pointer-events-none absolute inset-y-0 left-0 w-1/5 bg-gradient-to-r from-neutral-950 to-transparent z-10" />

@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Zap, Shield, Check, Loader2, AlertTriangle, Eye, Brain, Lock } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { LinearGlow } from './ui/linear-glow';
 
@@ -423,7 +424,13 @@ export function CreditTopUpModal({
                         )}
                       </div>
                       <p className="text-[10px] text-neutral-600">
-                        Tamu mendapatkan 3 kredit gratis setiap hari.
+                        Tamu mendapatkan 10 kredit gratis setiap bulan.
+                      </p>
+                      <p className="text-[9px] text-neutral-600 mt-2 leading-relaxed">
+                        Dengan login, kamu menyetujui{' '}
+                        <Link href="/terms" className="underline hover:text-neutral-400 transition-colors">Syarat & Ketentuan</Link>{' '}
+                        dan{' '}
+                        <Link href="/privacy" className="underline hover:text-neutral-400 transition-colors">Kebijakan Privasi</Link>.
                       </p>
                     </div>
                   ) : (
@@ -455,11 +462,19 @@ export function CreditTopUpModal({
 
                   </div>
                   {/* Trust Footer */}
-                  <div className="mt-5 pt-4 border-t border-neutral-800 flex items-center justify-center gap-2">
-                    <Shield className="w-3.5 h-3.5 text-neutral-600" />
-                    <span className="text-[10px] font-mono text-neutral-600 tracking-wide">
-                      Diamankan oleh Midtrans
-                    </span>
+                  <div className="mt-5 pt-4 border-t border-neutral-800 flex flex-col items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-3.5 h-3.5 text-neutral-600" />
+                      <span className="text-[10px] font-mono text-neutral-600 tracking-wide">
+                        Diamankan oleh Midtrans
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-neutral-600">
+                      Dengan melakukan pembayaran, kamu menyetujui{' '}
+                      <Link href="/terms" className="underline hover:text-neutral-400 transition-colors">Syarat & Ketentuan</Link>{' '}
+                      dan{' '}
+                      <Link href="/privacy" className="underline hover:text-neutral-400 transition-colors">Kebijakan Privasi</Link>.
+                    </p>
                   </div>
                 </>
               )}

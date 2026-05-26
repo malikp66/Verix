@@ -5,7 +5,7 @@ const OPENROUTER_MODELS = [
   "google/gemini-2.5-flash"
 ];
 
-const DEEPSEEK_TIMEOUT_MS = 15_000;
+const DEEPSEEK_TIMEOUT_MS = 30_000;
 
 // Definition of schema using standard Schema type from @google/genai
 const INTEL_SCHEMA: Schema = {
@@ -67,19 +67,28 @@ function repairJSON(raw: string): string | null {
 
   try { JSON.parse(cleaned); return cleaned; } catch {}
 
-  let openBraces = 0, openBrackets = 0, inString = false, escaped = false;
+  let inString = false, escaped = false;
   let lastSignificant = "";
-  for (const ch of cleaned) {
+  const closeStack: string[] = [];
+  let rootCloseIdx = -1;
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i];
     if (escaped) { escaped = false; continue; }
     if (ch === '\\' && inString) { escaped = true; continue; }
     if (ch === '"') { inString = !inString; continue; }
     if (inString) continue;
-    if (ch === '{') { openBraces++; lastSignificant = "{"; }
-    else if (ch === '}') { openBraces--; lastSignificant = "}"; }
-    else if (ch === '[') { openBrackets++; lastSignificant = "["; }
-    else if (ch === ']') { openBrackets--; lastSignificant = "]"; }
+    if (ch === '{') { closeStack.push('}'); lastSignificant = "{"; }
+    else if (ch === '}') { closeStack.pop(); lastSignificant = "}"; if (closeStack.length === 0) rootCloseIdx = i; }
+    else if (ch === '[') { closeStack.push(']'); lastSignificant = "["; }
+    else if (ch === ']') { closeStack.pop(); lastSignificant = "]"; }
     else if (ch === ':') { lastSignificant = ":"; }
     else if (ch === ',') { lastSignificant = ","; }
+  }
+
+  // If JSON is fully balanced but has trailing text, truncate at root-level }
+  if (closeStack.length === 0 && rootCloseIdx > 0 && rootCloseIdx < cleaned.length - 1) {
+    const truncated = cleaned.slice(0, rootCloseIdx + 1);
+    try { JSON.parse(truncated); return truncated; } catch {}
   }
 
   let repaired = cleaned;
@@ -90,10 +99,17 @@ function repairJSON(raw: string): string | null {
   } else if (lastSignificant === ":" || lastSignificant === "," || lastSignificant === "{" || lastSignificant === "[") {
     repaired += '""';
   }
-  while (openBraces > 0) { repaired += '}'; openBraces--; }
-  while (openBrackets > 0) { repaired += ']'; openBrackets--; }
+  while (closeStack.length > 0) {
+    repaired += closeStack.pop();
+  }
 
   try { JSON.parse(repaired); return repaired; } catch { return null; }
+}
+
+function stripToFirstJson(raw: string): string {
+  const firstBrace = raw.indexOf('{');
+  if (firstBrace === -1) return raw;
+  return raw.slice(firstBrace);
 }
 
 function safeParseAndValidate(rawContent: string, expectedLength: number) {
@@ -102,12 +118,16 @@ function safeParseAndValidate(rawContent: string, expectedLength: number) {
     .replace(/\n?```$/gm, '')
     .trim();
 
+  // Strip anything before first { and after last }
+  const stripped = stripToFirstJson(cleaned);
+
   let parsed: any = null;
   try {
-    parsed = JSON.parse(cleaned);
+    parsed = JSON.parse(stripped);
   } catch (e) {
     console.warn("[AI Layer] JSON Parse failed, attempting repair:", e);
-    const repaired = repairJSON(cleaned);
+    console.log("[AI Layer] Raw response (first 300 chars):", stripped.slice(0, 300));
+    const repaired = repairJSON(stripped);
     if (repaired) {
       try {
         parsed = JSON.parse(repaired);
@@ -120,10 +140,10 @@ function safeParseAndValidate(rawContent: string, expectedLength: number) {
     }
     // Last-resort safety net: truncate to the last complete '}' 
     if (!parsed) {
-      const lastBrace = cleaned.lastIndexOf('}');
+      const lastBrace = stripped.lastIndexOf('}');
       if (lastBrace > 0) {
         try {
-          parsed = JSON.parse(cleaned.slice(0, lastBrace + 1));
+          parsed = JSON.parse(stripped.slice(0, lastBrace + 1));
           console.log("[AI Layer] Recovered via last-brace truncation.");
         } catch {
           console.error("[AI Layer] Last-brace truncation also failed.");
@@ -185,11 +205,12 @@ STRICT INSTRUCTIONS:
           responseSchema: INTEL_SCHEMA,
           temperature: 0.1,
           topP: 0.1,
-          maxOutputTokens: 1500,
+          maxOutputTokens: 8192,
         }
       });
 
       const rawContent = response.text || "{}";
+      console.log("[AI Layer] Gemini raw response (first 200 chars):", rawContent.slice(0, 200));
       const result = safeParseAndValidate(rawContent, items.length);
       if (result) {
         console.log(`[AI Layer] Successfully extracted intel using Native Gemini SDK (free)`);
@@ -225,7 +246,7 @@ STRICT INSTRUCTIONS:
             messages: [{ role: "user", content: enrichedPrompt }],
             temperature: 0.1,
             top_p: 0.1,
-            max_tokens: 1500,
+            max_tokens: 8192,
             response_format: { type: "json_object" }
           }),
         });

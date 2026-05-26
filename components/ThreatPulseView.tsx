@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { IndonesiaMap } from './ui/IndonesiaMap';
 import { LinearGlow } from './ui/linear-glow';
@@ -23,10 +23,12 @@ import {
   Filter,
   ExternalLink,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Radar
 } from 'lucide-react';
 import { ThreatItem, ThreatInsights, generateSingleLiveThreat, buildInsights } from '@/lib/threatFeeds';
 import { useIntel } from './IntelligenceProvider';
+import { EmptyState } from './ui/EmptyState';
 import { cn } from '@/lib/utils';
 
 // Coordinates index for stable ID jitter mapping
@@ -97,45 +99,7 @@ const mapIntelToThreat = (item: any): ThreatItem => {
   };
 };
 
-// Campaign attack flow representation for Threat Stories
-const CAMPAIGN_FLOWS = [
-  {
-    title: "BCA Phishing Network",
-    steps: ["SMS / WA Alert", "Shortlink Redirect", "Fake BCA Domain", "OTP Stealer"],
-    impact: "Pengambilalihan M-banking, saldo dikuras habis.",
-    vector: "LINK",
-    confidence: "98% (KRITIS, diverifikasi oleh VirusTotal)",
-    status: "ACTIVE",
-    severity: "CRITICAL"
-  },
-  {
-    title: "Undangan Nikah APK Malware",
-    steps: ["WhatsApp Chat", "File APK Undangan", "SMS Permissions", "OTP Forwarder"],
-    impact: "Pencurian SMS OTP, pengambilalihan akun Whatsapp.",
-    vector: "APK",
-    confidence: "96% (KRITIS, diverifikasi oleh Abuse.ch)",
-    status: "ACTIVE",
-    severity: "CRITICAL"
-  },
-  {
-    title: "QRIS Fake Merchant Sticker",
-    steps: ["Stiker QRIS Palsu", "Toko / Merchant Scan", "Payment Redirect", "Direct Transfer"],
-    impact: "Kerugian finansial konsumen, reputasi merchant rusak.",
-    vector: "QRIS",
-    confidence: "92% (TINGGI, diverifikasi oleh Laporan Warga)",
-    status: "ACTIVE",
-    severity: "MEDIUM"
-  },
-  {
-    title: "WhatsApp OTP Hijack Wave",
-    steps: ["Call Spoofing", "Kasir / CS Palsu", "Social Engineering", "Account Transfer"],
-    impact: "WhatsApp diambil alih secara penuh untuk penipuan.",
-    vector: "SOCIAL_ENGINEERING",
-    confidence: "91% (TINGGI, diverifikasi oleh Kominfo)",
-    status: "ACTIVE",
-    severity: "HIGH"
-  }
-];
+
 
 export function ThreatPulseView() {
   const intel = useIntel();
@@ -147,8 +111,6 @@ export function ThreatPulseView() {
   // Selection / Hover states
   const [hoveredThreat, setHoveredThreat] = useState<ThreatItem | null>(null);
   const [selectedThreat, setSelectedThreat] = useState<ThreatItem | null>(null);
-  const [selectedCampaignTab, setSelectedCampaignTab] = useState<number>(0);
-
   // Filters state
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState("ALL");
@@ -234,7 +196,7 @@ export function ThreatPulseView() {
           .filter((t: any) => !existingIds.has(t.id));
         
         if (newRealThreats.length > 0) {
-          const merged = [...newRealThreats, ...prev].slice(0, 100);
+          const merged = [...newRealThreats, ...prev];
           merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
           return merged;
         }
@@ -533,6 +495,38 @@ export function ThreatPulseView() {
         {/* Right Sidebar: Situational Report & Analytics */}
         <div className="w-full lg:w-96 bg-[#0E0E0E]/90 backdrop-blur-xl border-t lg:border-t-0 border-neutral-900/80 p-6 flex flex-col gap-6 overflow-y-auto no-scrollbar relative z-25 h-auto lg:h-full">
           
+          {/* Region Threat Map Sidebar */}
+          {intel?.threat_map?.regions && intel.threat_map.regions.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2 pb-1 border-b border-neutral-900">
+                <MapPin className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-xs font-mono font-bold tracking-wider text-neutral-300 uppercase">Regional Threats</h3>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {intel.threat_map.regions.slice(0, 8).map((region: { region: string; count: number; severity: string }, i: number) => (
+                  <div key={i} className="flex items-center justify-between bg-[#111111]/60 border border-neutral-900/60 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        region.severity === 'CRITICAL' ? 'bg-red-500' :
+                        region.severity === 'HIGH' ? 'bg-orange-500' :
+                        region.severity === 'MEDIUM' ? 'bg-yellow-500' : 'bg-green-500'
+                      }`} />
+                      <span className="text-xs font-mono text-neutral-200">{region.region}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-mono font-semibold ${
+                        region.severity === 'CRITICAL' ? 'text-red-400' :
+                        region.severity === 'HIGH' ? 'text-orange-400' :
+                        region.severity === 'MEDIUM' ? 'text-yellow-400' : 'text-green-400'
+                      }`}>{region.severity}</span>
+                      <span className="text-[10px] font-mono text-neutral-500">{region.count} threats</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
           {/* SECTION 3: SITUATIONAL AWARENESS ENGINE */}
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2 pb-1 border-b border-neutral-900">
@@ -731,99 +725,47 @@ export function ThreatPulseView() {
         </div>
       </div>
 
-      {/* SECTION 4: ACTIVE CAMPAIGNS (CAMPAIGN-LEVEL INTELLIGENCE) */}
-      <div className="border-t border-neutral-900/60 bg-[#080808]/90 backdrop-blur-md px-6 md:px-8 py-8 relative z-10">
+      {/* SECTION 4: ACTIVE CAMPAIGNS (CAMPAIGN-LEVEL INTELLIGENCE) — DISABLED */}
+      {/* <div className="border-t border-neutral-900/60 bg-[#080808]/90 backdrop-blur-md px-6 md:px-8 py-8 relative z-10">
         <div className="flex items-center gap-2 mb-6 border-b border-neutral-900 pb-2">
           <ShieldAlert className="w-4 h-4 text-emerald-400" />
           <h2 className="text-sm font-mono font-bold tracking-wider text-neutral-300 uppercase">Active Cyber Campaigns (Indonesia)</h2>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Campaign Selector Tabs */}
-          <div className="lg:col-span-1 flex flex-col gap-2">
-            {CAMPAIGN_FLOWS.map((camp, idx) => (
-              <button
-                key={idx}
-                onClick={() => setSelectedCampaignTab(idx)}
-                className={`w-full text-left p-4 rounded-xl border transition-all duration-300 flex flex-col gap-1 ${
-                  selectedCampaignTab === idx 
-                    ? "bg-emerald-950/10 border-emerald-800/40 shadow-[0_0_15px_rgba(16,185,129,0.05)] text-white" 
-                    : "bg-[#111111]/30 border-neutral-900 text-neutral-400 hover:bg-[#111111]/50 hover:border-neutral-800"
-                }`}
-              >
-                <div className="flex justify-between items-center w-full">
-                  <span className="text-xs font-mono font-bold text-neutral-500 tracking-wider">CAMPAIGN-0{idx + 1}</span>
-                  <span className={`w-1.5 h-1.5 rounded-full ${camp.severity === 'CRITICAL' ? 'bg-red-500' : 'bg-orange-500'}`} />
-                </div>
-                <span className="text-sm font-medium truncate mt-1">{camp.title}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Campaign Visual Details Panel */}
-          <div className="lg:col-span-3 bg-[#111111]/30 border border-neutral-900 rounded-xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[220px]">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/[0.01] rounded-full blur-3xl pointer-events-none" />
-            
-            {/* Upper Details */}
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-                <h3 className="text-lg font-medium text-white flex items-center gap-2">
-                  {CAMPAIGN_FLOWS[selectedCampaignTab].title}
-                  <span className={`text-[9px] font-mono px-2 py-0.5 rounded border ${
-                    CAMPAIGN_FLOWS[selectedCampaignTab].severity === 'CRITICAL' 
-                      ? "bg-red-500/10 border-red-500/20 text-red-400" 
-                      : "bg-orange-500/10 border-orange-500/20 text-orange-400"
-                  }`}>
-                    {CAMPAIGN_FLOWS[selectedCampaignTab].severity} RISK
-                  </span>
-                </h3>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="text-neutral-500">Confidence:</span>
-                  <span className="text-emerald-400 font-mono font-semibold">{CAMPAIGN_FLOWS[selectedCampaignTab].confidence}</span>
-                </div>
+        {intel?.campaigns && intel.campaigns.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {intel.campaigns.map((camp: any, idx: number) => (
+            <div
+              key={idx}
+              className="p-4 rounded-xl border border-neutral-900 bg-[#111111]/30 hover:bg-[#111111]/50 hover:border-neutral-800 transition-all duration-300 flex flex-col gap-2"
+            >
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-mono font-bold text-neutral-500 tracking-wider">CAMPAIGN-0{idx + 1}</span>
+                <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+                  camp.severity === 'CRITICAL' 
+                    ? "bg-red-500/10 border-red-500/20 text-red-400" 
+                    : camp.severity === 'HIGH'
+                    ? "bg-orange-500/10 border-orange-500/20 text-orange-400"
+                    : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+                }`}>{camp.severity}</span>
               </div>
-
-              {/* Threat Story Attack Graph Flowchart */}
-              <div className="flex flex-col gap-2.5">
-                <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">Attack Flow / Threat Story:</span>
-                <div className="flex flex-row flex-wrap items-center gap-1.5 bg-neutral-900/40 border border-neutral-800/50 rounded-xl p-5">
-                  
-                  {CAMPAIGN_FLOWS[selectedCampaignTab].steps.map((step, sIdx) => (
-                    <Fragment key={sIdx}>
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-900/60 border border-neutral-800/60 hover:border-emerald-500/30 transition-colors">
-                        <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.4)]">
-                          <span className="text-[9px] font-mono font-bold text-neutral-950">{sIdx + 1}</span>
-                        </div>
-                        <span className="text-xs font-medium text-neutral-200">{step}</span>
-                      </div>
-                      {sIdx < CAMPAIGN_FLOWS[selectedCampaignTab].steps.length - 1 && (
-                        <ArrowRight className="w-4 h-4 text-emerald-500/40 shrink-0" />
-                      )}
-                    </Fragment>
-                  ))}
-                </div>
+              <span className="text-sm font-medium text-white">{camp.brand}</span>
+              <div className="flex items-center justify-between text-xs text-neutral-400">
+                <span className="font-mono">{camp.type}</span>
+                <span className="font-mono text-emerald-400">{camp.count} kejadian</span>
               </div>
             </div>
-
-            {/* Lower Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-neutral-900/60 pt-5 mt-5 text-xs">
-              <div className="flex flex-col gap-1">
-                <span className="text-neutral-500 font-mono text-[10px] uppercase">Mengapa Ini Penting:</span>
-                <span className="text-neutral-300 leading-relaxed font-light">
-                  {CAMPAIGN_FLOWS[selectedCampaignTab].impact}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-neutral-500 font-mono text-[10px] uppercase">Vektor Serangan:</span>
-                <span className="text-neutral-300 font-mono flex items-center gap-1.5 mt-0.5">
-                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-                  {CAMPAIGN_FLOWS[selectedCampaignTab].vector} Muatan Jaringan
-                </span>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
-      </div>
+        ) : (
+          <EmptyState
+            icon={Radar}
+            title="Belum Ada Kampanye Terdeteksi"
+            description="VERIX memonitor pola ancaman secara real-time. Kampanye aktif akan muncul di sini begitu teridentifikasi."
+            className="py-12"
+          />
+        )}
+      </div> */}
 
       {/* SECTION 5: CINEMATIC THREAT TIMELINE */}
       <div className="border-t border-neutral-900/60 bg-neutral-950 px-6 md:px-8 py-8 relative z-10 flex flex-col min-h-[500px]">
@@ -892,10 +834,12 @@ export function ThreatPulseView() {
               <span>Syncing threat intelligence stream...</span>
             </div>
           ) : filteredThreats.length === 0 ? (
-            <div className="py-24 text-center text-neutral-500 font-mono flex flex-col items-center justify-center gap-2">
-              <ShieldAlert className="w-6 h-6 text-neutral-600" />
-              <span>No threat nodes found matching filter criteria.</span>
-            </div>
+            <EmptyState
+              icon={Radar}
+              title="Menunggu Data Ancaman"
+              description={searchQuery || severityFilter !== 'ALL' ? 'Tidak ada ancaman yang cocok dengan filter yang dipilih.' : 'VERIX menunggu intelijen ancaman real-time. Data akan muncul begitu terdeteksi dari sumber global.'}
+              className="py-24"
+            />
           ) : (
             <div 
               onScroll={handleScroll}
