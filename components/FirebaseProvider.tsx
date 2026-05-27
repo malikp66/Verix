@@ -29,8 +29,14 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       try {
         await getDocFromServer(doc(db, 'test', 'connection'));
       } catch (error) {
-        if(error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration.");
+        if (error instanceof Error) {
+          if (error.message.includes('the client is offline')) {
+            console.error("Firebase: Cannot reach Firestore. Check network/Firebase configuration.");
+          } else if (error.message.includes('permission')) {
+            console.warn("Firebase: Connection test blocked by security rules (expected until rules are deployed).");
+          } else {
+            console.error("Firebase connection test failed:", error.message);
+          }
         }
       }
     }

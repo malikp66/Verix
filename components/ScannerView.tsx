@@ -98,6 +98,7 @@ type ScanResult = {
     content_type?: string;
     tags?: string[];
     last_analysis_date?: number;
+    engineResults?: { engine: string; category: string; result: string }[];
   };
 };
 
@@ -232,7 +233,7 @@ function ScanHistorySection() {
                 className={`w-full group relative flex items-center justify-between p-5 rounded-2xl border transition-all duration-300 cursor-pointer ${colorClass} ${isExpanded ? 'rounded-b-none border-b-transparent' : ''}`}
               >
                 <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-4 w-48 md:w-64 shrink-0">
+                  <div className="flex items-center gap-4 w-32 sm:w-48 md:w-64 shrink-0">
                     <div className="w-10 h-10 rounded-xl bg-black/40 flex items-center justify-center border border-white/5">
                       {report.risk === 'SAFE' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <ShieldAlert className="w-5 h-5" />}
                     </div>
@@ -617,6 +618,7 @@ export function ScannerView() {
               text: inputVal,
               hasImage: !!selectedImage
             },
+            userId: user?.uid || null,
             createdAt: new Date().toISOString()
           });
         } catch (cacheWriteErr) {
@@ -661,7 +663,7 @@ export function ScannerView() {
               className="flex flex-col items-center text-center mt-6"
             >
               {/* ─── TAB BAR ─── */}
-              <div className="inline-flex items-center gap-1.5 bg-neutral-900/80 border border-neutral-800 rounded-2xl p-1.5 mb-10 shadow-xl">
+              <div className="inline-flex items-center gap-1 sm:gap-1.5 bg-neutral-900/80 border border-neutral-800 rounded-2xl p-1.5 mb-10 shadow-xl overflow-x-auto max-w-full no-scrollbar">
                 {SCAN_TABS.map((tab) => {
                   const TabIcon = tab.icon;
                   const isActive = activeScanTab === tab.id;
@@ -722,7 +724,7 @@ export function ScannerView() {
               <motion.div key={`headline-${activeScanTab}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                 {activeScanTab === 'text' && (
                   <>
-                    <h1 className="text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight">
+                    <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight break-words">
                       Ancaman Digital <br className="hidden md:block" />Kini Terlihat Meyakinkan.
                     </h1>
                     <p className="text-lg text-neutral-400 mb-6 max-w-2xl">
@@ -732,7 +734,7 @@ export function ScannerView() {
                 )}
                 {activeScanTab === 'link' && (
                   <>
-                    <h1 className="text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight">
+                    <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight break-words">
                       Link Phishing<span className="text-rose-400">.</span>
                     </h1>
                     <p className="text-lg text-neutral-400 mb-6 max-w-2xl">
@@ -742,7 +744,7 @@ export function ScannerView() {
                 )}
                 {activeScanTab === 'qris' && (
                   <>
-                    <h1 className="text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight">
+                    <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight break-words">
                       QRIS &amp; Bukti <span className="text-purple-400">Scam</span>
                     </h1>
                     <p className="text-lg text-neutral-400 mb-6 max-w-2xl">
@@ -752,7 +754,7 @@ export function ScannerView() {
                 )}
                 {activeScanTab === 'apk' && (
                   <>
-                    <h1 className="text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight">
+                    <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight break-words">
                       APK <span className="text-amber-400">Malware</span> Scanner
                     </h1>
                     <p className="text-lg text-neutral-400 mb-6 max-w-2xl">
@@ -762,7 +764,7 @@ export function ScannerView() {
                 )}
                 {activeScanTab === 'deepfake' && (
                   <>
-                    <h1 className="text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight">
+                    <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight break-words">
                       Deteksi <span className="text-fuchsia-400">Deepfake</span>
                     </h1>
                     <p className="text-lg text-neutral-400 mb-6 max-w-2xl">
@@ -890,7 +892,7 @@ export function ScannerView() {
               })()}
 
               {/* ─── FEATURE BADGES ─── */}
-              <motion.div key={`badge-${activeScanTab}`} className="flex flex-wrap items-center justify-center gap-6 mt-8 text-sm text-neutral-500">
+              <motion.div key={`badge-${activeScanTab}`} className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 mt-8 text-sm text-neutral-500">
                 {(activeScanTab === 'deepfake') && (
                   <>
                     <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-fuchsia-500" /> Face Texture Analysis</span>
@@ -954,7 +956,7 @@ export function ScannerView() {
                   <span>VERIX.INTELLIGENCE.NODE</span>
                 </div>
 
-                <div className="space-y-3 font-mono text-sm h-48 flex flex-col justify-end relative z-10">
+                <div className="space-y-3 font-mono text-sm min-h-[12rem] flex flex-col justify-end relative z-10">
                   {SCAN_STEPS.slice(0, scanStepIndex + 1).map((step, idx) => (
                     <motion.div
                       initial={{ opacity: 0, x: -10 }}
@@ -1055,7 +1057,7 @@ export function ScannerView() {
                   <div className="flex-1 flex flex-col justify-center">
                     {/* QRIS: show merchant info */}
                     {scanResult.analysis_type === 'qris' && (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-800">
                           <p className="text-[10px] font-mono text-neutral-500 mb-1">MERCHANT</p>
                           <p className="text-sm font-mono text-purple-300 font-medium">{scanResult.merchant || 'Unknown'}</p>
@@ -1166,6 +1168,85 @@ export function ScannerView() {
                   </div>
                 </div>
               </div>
+
+              {/* OSINT ROW: External Intelligence Signals (URL/link scans only) */}
+              {scanResult.external_intelligence && scanResult.analysis_type !== 'qris' && (scanResult.analysis_type !== 'file' || scanResult.external_intelligence.virustotal) && Object.keys(scanResult.external_intelligence).length > 0 && (
+                <div className="mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {scanResult.external_intelligence.safe_browsing && (
+                      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex flex-col justify-between min-h-[130px] relative overflow-hidden">
+                        <div className="flex items-center justify-between border-b border-neutral-800/60 pb-2">
+                          <span className="text-[10px] text-neutral-400 font-mono flex items-center gap-1.5">
+                            <ShieldAlert className="w-3 h-3 text-emerald-400" /> Google Safe Browsing
+                          </span>
+                        </div>
+                        <div className="my-2">
+                          <span className={`text-lg font-bold font-mono tracking-tight ${scanResult.external_intelligence.safe_browsing.includes("BAHAYA") ? "text-red-400" : "text-emerald-400"}`}>
+                            {scanResult.external_intelligence.safe_browsing.includes("BAHAYA") ? "MALICIOUS" : "CLEAN"}
+                          </span>
+                          <p className="text-[9px] text-neutral-500 mt-1 font-sans">{scanResult.external_intelligence.safe_browsing}</p>
+                        </div>
+                      </div>
+                    )}
+                    {scanResult.external_intelligence.virustotal && (
+                      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex flex-col justify-between min-h-[130px] relative overflow-hidden">
+                        <div className="flex items-center justify-between border-b border-neutral-800/60 pb-2">
+                          <span className="text-[10px] text-neutral-400 font-mono flex items-center gap-1.5">
+                            <Database className="w-3 h-3 text-cyan-400" /> VirusTotal
+                          </span>
+                          {scanResult.virustotal_raw?.status && (
+                            <span className="text-[8px] font-mono text-neutral-500 uppercase">{scanResult.virustotal_raw.status}</span>
+                          )}
+                        </div>
+                        <div className="my-2">
+                          {scanResult.virustotal_raw ? (
+                            <div className="flex items-baseline gap-1">
+                              <span className={`text-lg font-bold font-mono tracking-tight ${scanResult.virustotal_raw.malicious_votes > 0 ? "text-red-400" : "text-emerald-400"}`}>
+                                {scanResult.virustotal_raw.malicious_votes}
+                              </span>
+                              <span className="text-[9px] font-mono text-neutral-500">
+                                / {scanResult.virustotal_raw.total_engines} malicious
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-base font-medium font-mono text-neutral-400">{scanResult.external_intelligence.virustotal}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {scanResult.external_intelligence.urlscan && (
+                      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex flex-col justify-between min-h-[130px] relative overflow-hidden">
+                        <div className="flex items-center justify-between border-b border-neutral-800/60 pb-2">
+                          <span className="text-[10px] text-neutral-400 font-mono flex items-center gap-1.5">
+                            <ScanSearch className="w-3 h-3 text-amber-400" /> URLScan.io
+                          </span>
+                        </div>
+                        <div className="my-2">
+                          <span className={`text-lg font-bold font-mono tracking-tight ${!scanResult.external_intelligence.urlscan.includes("100") && !scanResult.external_intelligence.urlscan.includes("Clean") ? "text-amber-400" : "text-emerald-400"}`}>
+                            {scanResult.external_intelligence.urlscan.includes("85") || scanResult.external_intelligence.urlscan.includes("100") || scanResult.external_intelligence.urlscan.includes("Clean") ? "REPUTABLE" : "SUSPICIOUS"}
+                          </span>
+                          <p className="text-[9px] text-neutral-500 mt-1 font-sans">{scanResult.external_intelligence.urlscan}</p>
+                        </div>
+                      </div>
+                    )}
+                    {scanResult.external_intelligence.urlhaus && (
+                      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex flex-col justify-between min-h-[130px] relative overflow-hidden">
+                        <div className="flex items-center justify-between border-b border-neutral-800/60 pb-2">
+                          <span className="text-[10px] text-neutral-400 font-mono flex items-center gap-1.5">
+                            <ShieldAlert className="w-3 h-3 text-rose-400" /> Abuse.ch URLhaus
+                          </span>
+                        </div>
+                        <div className="my-2">
+                          <span className={`text-lg font-bold font-mono tracking-tight ${scanResult.external_intelligence.urlhaus.includes("TERINFEKSI") ? "text-rose-400" : scanResult.external_intelligence.urlhaus.includes("AMAN") ? "text-emerald-400" : "text-amber-400"}`}>
+                            {scanResult.external_intelligence.urlhaus.includes("TERINFEKSI") ? "MALICIOUS" : scanResult.external_intelligence.urlhaus.includes("AMAN") ? "CLEAN" : "UNAVAILABLE"}
+                          </span>
+                          <p className="text-[9px] text-neutral-500 mt-1 font-sans">{scanResult.external_intelligence.urlhaus}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Bottom Row Bento: Details, OSINT, & Action Protocols */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1291,13 +1372,13 @@ export function ScannerView() {
                           {scanResult.exif.software && (
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] font-mono text-neutral-500">Software:</span>
-                              <span className="text-[11px] font-mono text-neutral-300">{scanResult.exif.software}</span>
+                              <span className="text-[11px] font-mono text-neutral-300 truncate">{scanResult.exif.software}</span>
                             </div>
                           )}
                           {scanResult.exif.make && (
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] font-mono text-neutral-500">Device:</span>
-                              <span className="text-[11px] font-mono text-neutral-300">{scanResult.exif.make} {scanResult.exif.model || ''}</span>
+                              <span className="text-[11px] font-mono text-neutral-300 truncate">{scanResult.exif.make} {scanResult.exif.model || ''}</span>
                             </div>
                           )}
                           {scanResult.exif.editingTraces.length > 0 && (
@@ -1317,172 +1398,7 @@ export function ScannerView() {
                       </div>
                     )}
 
-                    {/* External Intelligence Block  skip for QRIS and file (no OSINT) */}
-                    {scanResult.external_intelligence && scanResult.analysis_type !== 'qris' && (scanResult.analysis_type !== 'file' || scanResult.external_intelligence.virustotal) && Object.keys(scanResult.external_intelligence).length > 0 && (
-                      <div className="mt-6 flex flex-col gap-4 border-t border-neutral-800/50 pt-6">
-                        <p className="text-xs font-mono text-neutral-500 mb-1 uppercase tracking-wider">External Intelligence Signals</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-                          {/* Safe Browsing Card */}
-                          {scanResult.external_intelligence.safe_browsing && (
-                            <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-2xl flex flex-col justify-between min-h-[160px] relative overflow-hidden">
-                              <div className="flex items-center justify-between border-b border-neutral-900 pb-2">
-                                <span className="text-[11px] text-neutral-400 font-mono flex items-center gap-1.5">
-                                  <ShieldAlert className="w-3.5 h-3.5 text-emerald-400" /> Google Safe Browsing
-                                </span>
-                                <span className="text-[9px] font-mono text-neutral-500 uppercase tracking-wider">
-                                  v4 api
-                                </span>
-                              </div>
-
-                              <div className="my-2.5">
-                                <span className={`text-lg font-bold font-mono tracking-tight ${scanResult.external_intelligence.safe_browsing.includes("BAHAYA") ? "text-red-400" : "text-emerald-400"
-                                  }`}>
-                                  {scanResult.external_intelligence.safe_browsing.includes("BAHAYA") ? "MALICIOUS" : "CLEAN"}
-                                </span>
-                                <p className="text-[10px] text-neutral-400 mt-1 font-sans leading-relaxed">
-                                  {scanResult.external_intelligence.safe_browsing || "Tidak terdaftar sebagai ancaman."}
-                                </p>
-                              </div>
-
-                              <div className="flex flex-wrap gap-1 mt-1 border-t border-neutral-900/60 pt-2 text-[8px] text-neutral-500 font-mono">
-                                <span>Checked targets: 1 URL</span>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* VirusTotal Card */}
-                          {scanResult.external_intelligence.virustotal && (
-                            <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-2xl flex flex-col justify-between min-h-[160px] relative overflow-hidden">
-                              <div className="flex items-center justify-between border-b border-neutral-900 pb-2">
-                                <span className="text-[11px] text-neutral-400 font-mono flex items-center gap-1.5">
-                                  <Database className="w-3.5 h-3.5 text-cyan-400" /> VirusTotal
-                                </span>
-                                {scanResult.virustotal_raw?.status && (
-                                  <span className="text-[9px] font-mono text-neutral-500 uppercase tracking-wider">
-                                    {scanResult.virustotal_raw.status}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="my-2">
-                                {scanResult.virustotal_raw ? (
-                                  <div className="space-y-1">
-                                    <div className="flex items-baseline gap-1">
-                                      <span className={`text-2xl font-bold font-mono tracking-tight ${scanResult.virustotal_raw.malicious_votes > 0 ? "text-red-400" : "text-emerald-400"
-                                        }`}>
-                                        {scanResult.virustotal_raw.malicious_votes}
-                                      </span>
-                                      <span className="text-[10px] font-mono text-neutral-500">
-                                        / {scanResult.virustotal_raw.total_engines} malicious engines
-                                      </span>
-                                    </div>
-
-                                    {/* HTTP Status Code & Content Type */}
-                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px] font-mono text-neutral-400 border-t border-neutral-900 pt-1">
-                                      {scanResult.virustotal_raw.http_code !== undefined && (
-                                        <span className="flex items-center gap-0.5">
-                                          <span className="text-neutral-500">HTTP:</span>
-                                          <span className={scanResult.virustotal_raw.http_code >= 400 ? "text-red-400" : scanResult.virustotal_raw.http_code >= 300 ? "text-amber-400" : "text-emerald-400"}>
-                                            {scanResult.virustotal_raw.http_code}
-                                          </span>
-                                        </span>
-                                      )}
-                                      {scanResult.virustotal_raw.content_type && (
-                                        <span className="truncate max-w-[100px]" title={scanResult.virustotal_raw.content_type}>
-                                          <span className="text-neutral-500">Type:</span> {scanResult.virustotal_raw.content_type.split(';')[0]}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div>
-                                    <span className={`text-base font-medium font-mono ${!scanResult.external_intelligence.virustotal.includes("0 engine") && !scanResult.external_intelligence.virustotal.includes("AMAN") ? "text-red-400" : "text-emerald-400"
-                                      }`}>
-                                      {scanResult.external_intelligence.virustotal}
-                                    </span>
-                                    <p className="text-[10px] text-neutral-500 mt-1">Global security vendors</p>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Tags/Pills list */}
-                              <div className="flex flex-wrap items-center gap-1 mt-1 border-t border-neutral-900/60 pt-2">
-                                <div className="flex flex-wrap gap-1 max-w-[60%]">
-                                  {scanResult.virustotal_raw?.tags && scanResult.virustotal_raw.tags.map((tag, idx) => (
-                                    <span key={idx} className="bg-neutral-900 border border-neutral-850 text-neutral-400 text-[8px] px-1 py-0.5 rounded font-mono truncate max-w-[45px]">
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                                {scanResult.virustotal_raw?.last_analysis_date && (
-                                  <span className="text-[7.5px] text-neutral-500 font-mono ml-auto" title="Last analyzed date">
-                                    {new Date(scanResult.virustotal_raw.last_analysis_date * 1000).toLocaleDateString('id-ID', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* URLScan.io Card */}
-                          {scanResult.external_intelligence.urlscan && (
-                            <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-2xl flex flex-col justify-between min-h-[160px] relative overflow-hidden">
-                              <div className="flex items-center justify-between border-b border-neutral-900 pb-2">
-                                <span className="text-[11px] text-neutral-400 font-mono flex items-center gap-1.5">
-                                  <ScanSearch className="w-3.5 h-3.5 text-amber-400" /> URLScan.io
-                                </span>
-                                <span className="text-[9px] font-mono text-neutral-500 uppercase tracking-wider">
-                                  sandbox
-                                </span>
-                              </div>
-
-                              <div className="my-2.5">
-                                <span className={`text-lg font-bold font-mono tracking-tight ${scanResult.external_intelligence.urlscan && !scanResult.external_intelligence.urlscan.includes("100") && !scanResult.external_intelligence.urlscan.includes("Clean") ? "text-amber-400" : "text-emerald-400"
-                                  }`}>
-                                  {scanResult.external_intelligence.urlscan.includes("85") || scanResult.external_intelligence.urlscan.includes("100") || scanResult.external_intelligence.urlscan.includes("Clean") ? "REPUTABLE" : "SUSPICIOUS"}
-                                </span>
-                                <p className="text-[10px] text-neutral-400 mt-1 font-sans leading-relaxed">
-                                  {scanResult.external_intelligence.urlscan || "Skor Reputasi: 85/100"}
-                                </p>
-                              </div>
-
-                              <div className="flex flex-wrap gap-1 mt-1 border-t border-neutral-900/60 pt-2 text-[8px] text-neutral-500 font-mono">
-                                <span>Behavioral heuristics validation</span>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Abuse.ch URLhaus Card */}
-                          {scanResult.external_intelligence.urlhaus && (
-                            <div className="bg-neutral-950 border border-neutral-800 p-4 rounded-2xl flex flex-col justify-between min-h-[160px] relative overflow-hidden">
-                              <div className="flex items-center justify-between border-b border-neutral-900 pb-2">
-                                <span className="text-[11px] text-neutral-400 font-mono flex items-center gap-1.5">
-                                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400" /> Abuse.ch URLhaus
-                                </span>
-                                <span className="text-[9px] font-mono text-neutral-500 uppercase tracking-wider">
-                                  community
-                                </span>
-                              </div>
-
-                              <div className="my-2.5">
-                                <span className={`text-lg font-bold font-mono tracking-tight ${scanResult.external_intelligence.urlhaus.includes("TERINFEKSI") ? "text-rose-400" : scanResult.external_intelligence.urlhaus.includes("AMAN") ? "text-emerald-400" : "text-amber-400"
-                                  }`}>
-                                  {scanResult.external_intelligence.urlhaus.includes("TERINFEKSI") ? "MALICIOUS" : scanResult.external_intelligence.urlhaus.includes("AMAN") ? "CLEAN" : "UNAVAILABLE"}
-                                </span>
-                                <p className="text-[10px] text-neutral-400 mt-1 font-sans leading-relaxed">
-                                  {scanResult.external_intelligence.urlhaus || "Tidak terdaftar sebagai ancaman."}
-                                </p>
-                              </div>
-
-                              <div className="flex flex-wrap gap-1 mt-1 border-t border-neutral-900/60 pt-2 text-[8px] text-neutral-500 font-mono">
-                                <span>Malicious URL database</span>
-                              </div>
-                            </div>
-                          )}
-
-                        </div>
-                      </div>
-                    )}
+                    {/* External Intelligence Block was moved to top section */}
                   </div>
                 </div>
 
@@ -1599,7 +1515,7 @@ export function ScannerView() {
                               'bg-emerald-500/20 text-emerald-400 border-emerald-500/30')}>
                               {idx + 1}
                             </span>
-                            <span className="leading-tight pt-0.5">{action}</span>
+                            <span className="leading-tight pt-0.5 break-words">{action}</span>
                           </li>
                         ))}
                       </ul>
@@ -1608,6 +1524,49 @@ export function ScannerView() {
                 </div>
 
               </div>
+
+              {/* Security Vendors Analysis — VirusTotal (URL/link scans only) */}
+              {scanResult.virustotal_raw?.engineResults && scanResult.virustotal_raw.engineResults.length > 0 && scanResult.analysis_type !== 'qris' && scanResult.analysis_type !== 'file' && scanResult.analysis_type !== 'deepfake' && (
+                <div className="bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden">
+                  <div className="flex items-center gap-2.5 px-6 py-4 border-b border-neutral-800/80">
+                    <Database className="w-4 h-4 text-cyan-400" />
+                    <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider">Security Vendors Analysis — VirusTotal ({scanResult.virustotal_raw.engineResults.length} engines)</span>
+                  </div>
+                  <div className="overflow-x-auto no-scrollbar">
+                    <table className="w-full text-xs font-mono">
+                      <thead>
+                        <tr className="border-b border-neutral-800/40 bg-neutral-950/30">
+                          <th className="text-left px-6 py-3 text-[10px] text-neutral-500 uppercase tracking-wider font-medium">Security Vendor</th>
+                          <th className="text-left px-6 py-3 text-[10px] text-neutral-500 uppercase tracking-wider font-medium">Status</th>
+                          <th className="text-left px-6 py-3 text-[10px] text-neutral-500 uppercase tracking-wider font-medium">Result</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scanResult.virustotal_raw.engineResults.map((vendor, idx) => {
+                          const isMalicious = vendor.category === 'malicious';
+                          const isSuspicious = vendor.category === 'suspicious';
+                          const isHarmless = vendor.category === 'harmless';
+                          const rowColor = isMalicious ? 'bg-red-950/10' : isSuspicious ? 'bg-amber-950/10' : isHarmless ? 'bg-emerald-950/10' : '';
+                          const dotColor = isMalicious ? 'bg-red-500' : isSuspicious ? 'bg-amber-500' : isHarmless ? 'bg-emerald-500' : 'bg-neutral-600';
+                          const textColor = isMalicious ? 'text-red-400' : isSuspicious ? 'text-amber-400' : isHarmless ? 'text-emerald-400' : 'text-neutral-500';
+                          return (
+                            <tr key={idx} className={`border-b border-neutral-800/20 hover:bg-neutral-800/20 transition-colors ${rowColor}`}>
+                              <td className="px-6 py-3 text-neutral-200 font-medium">{vendor.engine}</td>
+                              <td className="px-6 py-3">
+                                <span className={`inline-flex items-center gap-1.5 ${textColor}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+                                  {vendor.category.toUpperCase()}
+                                </span>
+                              </td>
+                              <td className="px-6 py-3 text-neutral-400">{vendor.result || '—'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

@@ -174,9 +174,8 @@ function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
             transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
             className="text-5xl sm:text-6xl md:text-8xl font-display font-medium tracking-tight mb-8 max-w-6xl leading-[1.2]"
           >
-            <div className="flex flex-row gap-8">
+            <div className="flex flex-col md:flex-row gap-2 md:gap-8 items-baseline">
               <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-neutral-500">Deteksi</span>
-              {/* <br className="hidden md:block" /> */}
               <RotatingWords words={["Link Phishing", "Foto Deepfake", "APK Berbahaya", "QRIS Palsu", "Penipuan WA"]} />
             </div>
             <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-neutral-500">Sebelum Terlambat.</span>
