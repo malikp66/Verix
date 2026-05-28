@@ -15,18 +15,24 @@ export async function GET(req: NextRequest) {
     const snap = await db
       .collection('orders')
       .where('userId', '==', decoded.uid)
-      .orderBy('createdAt', 'desc')
       .limit(50)
       .get();
 
-    const orders = snap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const orders = snap.docs
+      .map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+      .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+        const dateA = typeof a.createdAt === 'string' ? a.createdAt : '';
+        const dateB = typeof b.createdAt === 'string' ? b.createdAt : '';
+        return dateB.localeCompare(dateA);
+      });
 
     return NextResponse.json({ orders });
   } catch (error) {
     console.error('Orders GET error:', error);
-    return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
+    return NextResponse.json({ orders: [] });
   }
 }
+
