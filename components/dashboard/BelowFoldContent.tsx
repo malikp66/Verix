@@ -320,7 +320,7 @@ function BentoGrid() {
   ];
 
   return (
-    <section className="py-32 max-w-7xl mx-auto px-6 relative">
+    <section className="py-32 max-w-7xl mx-auto px-6 relative overflow-hidden">
       <div className="absolute top-0 left-10 right-10 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
       <div className="absolute -top-40 left-10 w-[500px] h-[500px] bg-emerald-500/[0.03] blur-[130px] rounded-full pointer-events-none animate-pulse-slow" />
       <div className="absolute -bottom-40 right-10 w-[500px] h-[500px] bg-blue-500/[0.03] blur-[130px] rounded-full pointer-events-none animate-pulse-slow" />

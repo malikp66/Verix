@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { adminDb } from '@/lib/firebase-admin';
 
 const PRICING: Record<string, { credits: number; price: number; label: string }> = {
   starter: { credits: 10, price: 10000, label: '10 AI Credits' },
@@ -15,10 +16,11 @@ const SERVER_KEY = process.env.MIDTRANS_SERVER_KEY ?? '';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tier, userEmail, userName } = body as {
+    const { tier, userEmail, userName, userId } = body as {
       tier: string;
       userEmail: string;
       userName?: string;
+      userId?: string;
     };
 
     const pkg = PRICING[tier];
@@ -37,6 +39,23 @@ export async function POST(request: NextRequest) {
     }
 
     const orderId = `VERIX-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+    // Store order mapping in Firestore for webhook
+    if (userId) {
+      try {
+        const db = adminDb();
+        await db.collection('orders').doc(orderId).set({
+          userId,
+          tier,
+          credits: pkg.credits,
+          price: pkg.price,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error('Failed to store order in Firestore:', err);
+      }
+    }
 
     const payload = {
       transaction_details: {
@@ -57,7 +76,7 @@ export async function POST(request: NextRequest) {
           category: 'AI Credits',
         },
       ],
-      custom_field1: tier,
+      custom_field1: userId || '',
       custom_field2: String(pkg.credits),
     };
 

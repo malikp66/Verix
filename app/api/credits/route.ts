@@ -1,90 +1,62 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
-// Simulating Upstash Redis rate limiter / DB for MVP
-// In production, this data would be in Redis or synced to Firestore User document
-const userCredits = new Map<string, { used: number, max: number, lastReset: number }>();
+export async function GET(req: NextRequest) {
+  try {
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) {
+      return NextResponse.json({ credits: 0, user: null });
+    }
 
-const LIMITS = {
-  GUEST: 10,
-  VERIFIED: 20,
-  PREMIUM: 100
-};
+    const token = authHeader.replace("Bearer ", "");
+    const decoded = await adminAuth.verifyIdToken(token);
+    const db = adminDb();
+    const userRef = db.collection("users").doc(decoded.uid);
+    const snap = await userRef.get();
 
-function getResetTime() {
-  const now = new Date();
-  now.setUTCHours(0, 0, 0, 0);
-  return now.getTime();
+    if (!snap.exists) {
+      return NextResponse.json({ credits: 0, user: decoded.uid });
+    }
+
+    const data = snap.data() as { aiCredits?: number } | undefined;
+    return NextResponse.json({ credits: data?.aiCredits ?? 0, user: decoded.uid });
+  } catch (error) {
+    console.error("Credits GET error:", error);
+    return NextResponse.json({ credits: 0, user: null });
+  }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, tier = "GUEST", action = "consume" } = await req.json();
-    
-    // For IP-based guest tracking, we'd normally use req.headers.get('x-forwarded-for')
-    // We'll use a simulated IP if no userId is provided
-    const identifier = userId || req.headers.get("x-forwarded-for") || "anonymous_ip";
-    
-    const maxLimit = tier === "PREMIUM" ? LIMITS.PREMIUM : tier === "VERIFIED" ? LIMITS.VERIFIED : LIMITS.GUEST;
-    
-    let record = userCredits.get(identifier);
-    const today = getResetTime();
-
-    if (!record || record.lastReset < today) {
-        record = { used: 0, max: maxLimit, lastReset: today };
-    } else {
-        // Adjust max if user upgraded
-        if (record.max < maxLimit) {
-            record.max = maxLimit;
-        }
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const token = authHeader.replace("Bearer ", "");
+    const decoded = await adminAuth.verifyIdToken(token);
+    const { action, amount = 1 } = await req.json();
+
+    const db = adminDb();
+    const userRef = db.collection("users").doc(decoded.uid);
 
     if (action === "consume") {
-        if (record.used >= record.max) {
-             return NextResponse.json({ 
-                 error: "Quota Exceeded", 
-                 used: record.used, 
-                 max: record.max,
-                 can_analyze: false
-             }, { status: 429 });
-        }
-        record.used += 1;
-        userCredits.set(identifier, record);
-    } else {
-        userCredits.set(identifier, record);
+      await userRef.update({
+        aiCredits: FieldValue.increment(-amount),
+      });
+    } else if (action === "topup") {
+      await userRef.update({
+        aiCredits: FieldValue.increment(amount),
+      });
     }
 
-    return NextResponse.json({
-        success: true,
-        used: record.used,
-        max: record.max,
-        remaining: record.max - record.used,
-        tier,
-        can_analyze: record.used < record.max
-    });
+    const snap = await userRef.get();
+    const data = snap.data();
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ credits: data?.aiCredits ?? 0, user: decoded.uid });
+  } catch (error) {
+    console.error("Credits POST error:", error);
+    return NextResponse.json({ error: "Failed to update credits" }, { status: 500 });
   }
-}
-
-export async function GET(req: NextRequest) {
-    const url = new URL(req.url);
-    const userId = url.searchParams.get("userId") || req.headers.get("x-forwarded-for") || "anonymous_ip";
-    const tier = url.searchParams.get("tier") || "GUEST";
-    const maxLimit = tier === "PREMIUM" ? LIMITS.PREMIUM : tier === "VERIFIED" ? LIMITS.VERIFIED : LIMITS.GUEST;
-    
-    let record = userCredits.get(userId);
-    const today = getResetTime();
-
-    if (!record || record.lastReset < today) {
-        record = { used: 0, max: maxLimit, lastReset: today };
-    }
-
-    return NextResponse.json({
-         used: record.used,
-         max: record.max,
-         remaining: record.max - record.used,
-         tier,
-         can_analyze: record.used < record.max
-    });
 }

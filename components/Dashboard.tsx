@@ -68,18 +68,27 @@ function getJitteredCoords(regionName: string, id: string): [number, number] {
 }
 
 // Map keywords to Indonesian map provinces
+const REGION_MAPPINGS = [
+  { name: "Jakarta", keywords: ["jakarta", "jkt", "jabodetabek", "raya"] },
+  { name: "Jawa Barat", keywords: ["jawa barat", "jabar", "bandung", "depok", "bogor", "bekasi"] },
+  { name: "Jawa Timur", keywords: ["jawa timur", "jatim", "surabaya", "malang", "sidoarjo"] },
+  { name: "Jawa Tengah", keywords: ["jawa tengah", "jateng", "semarang", "solo", "yogyakarta", "jogja"] },
+  { name: "Sumatera Utara", keywords: ["sumatera utara", "sumut", "medan", "deliserdang"] },
+  { name: "Sulawesi Selatan", keywords: ["sulawesi selatan", "sulsel", "makassar"] },
+  { name: "Bali", keywords: ["bali", "denpasar", "kuta"] },
+  { name: "Kalimantan Timur", keywords: ["kalimantan timur", "kaltim", "samarinda", "balikpapan"] }
+];
+
 function parseRegionFromTitle(title: string, link: string): string {
   const lower = (title + " " + link).toLowerCase();
-  if (lower.includes("jakarta") || lower.includes("jkt") || lower.includes("jabodetabek") || lower.includes("raya")) return "Jakarta";
-  if (lower.includes("jawa barat") || lower.includes("jabar") || lower.includes("bandung") || lower.includes("depok") || lower.includes("bogor") || lower.includes("bekasi")) return "Jawa Barat";
-  if (lower.includes("jawa timur") || lower.includes("jatim") || lower.includes("surabaya") || lower.includes("malang") || lower.includes("sidoarjo")) return "Jawa Timur";
-  if (lower.includes("jawa tengah") || lower.includes("jateng") || lower.includes("semarang") || lower.includes("solo") || lower.includes("yogyakarta") || lower.includes("jogja")) return "Jawa Tengah";
-  if (lower.includes("sumatera utara") || lower.includes("sumut") || lower.includes("medan") || lower.includes("deliserdang")) return "Sumatera Utara";
-  if (lower.includes("sulawesi selatan") || lower.includes("sulsel") || lower.includes("makassar")) return "Sulawesi Selatan";
-  if (lower.includes("bali") || lower.includes("denpasar") || lower.includes("kuta")) return "Bali";
-  if (lower.includes("kalimantan timur") || lower.includes("kaltim") || lower.includes("samarinda") || lower.includes("balikpapan")) return "Kalimantan Timur";
+  
+  for (const region of REGION_MAPPINGS) {
+    if (region.keywords.some(kw => lower.includes(kw))) {
+      return region.name;
+    }
+  }
 
-  const INDO_REGIONS_LIST = ["Jakarta", "Jawa Barat", "Jawa Timur", "Jawa Tengah", "Sumatera Utara", "Sulawesi Selatan", "Bali", "Kalimantan Timur"];
+  const INDO_REGIONS_LIST = REGION_MAPPINGS.map(r => r.name);
   let hash = 0;
   for (let i = 0; i < title.length; i++) {
     hash = title.charCodeAt(i) + ((hash << 5) - hash);
@@ -174,7 +183,7 @@ function HeroSection({ setActiveTab }: { setActiveTab: (id: string) => void }) {
             transition={{ duration: 0.8, delay: 0.1, ease: "easeOut" }}
             className="text-5xl sm:text-6xl md:text-8xl font-display font-medium tracking-tight mb-8 max-w-6xl leading-[1.2]"
           >
-            <div className="flex flex-col md:flex-row gap-2 md:gap-8 items-baseline">
+            <div className="flex flex-col md:flex-row md:items-start gap-2 md:gap-8 items-center">
               <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-neutral-500">Deteksi</span>
               <RotatingWords words={["Link Phishing", "Foto Deepfake", "APK Berbahaya", "QRIS Palsu", "Penipuan WA"]} />
             </div>

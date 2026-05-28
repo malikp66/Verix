@@ -11,8 +11,6 @@ import { useState, useRef, useEffect } from 'react';
 import { LightRays } from './ui/light-rays';
 import { LinearGlow } from './ui/linear-glow';
 import { useAICredits } from '@/hooks/use-ai-credits';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { CreditTopUpModal } from './CreditTopUpModal';
 import { useAuth } from './FirebaseProvider';
 import { cn } from '@/lib/utils';
@@ -103,7 +101,6 @@ type ScanResult = {
 };
 
 const SCAN_TABS = [
-  { id: 'text',     label: 'SMS / Teks',        icon: MessageSquare, color: 'cyan',   desc: 'Analisa pesan penipuan dari SMS, WhatsApp, atau chat',                    placeholder: 'Tulis pesan penipuan di sini...' },
   { id: 'link',     label: 'Link Phishing',      icon: Link2,         color: 'rose',   desc: 'Tempel URL mencurigakan untuk analisa phishing & malware',               placeholder: 'example.com atau https://...' },
   { id: 'qris',     label: 'QRIS / Gambar',      icon: Scan,          color: 'purple', desc: 'Upload screenshot QRIS palsu atau bukti chat penipuan',                   placeholder: 'Upload gambar atau tempel URL...' },
   { id: 'apk',      label: 'APK Malware',        icon: Package,       color: 'amber',  desc: 'Periksa APK mencurigakan via nama package, hash, atau info file',          placeholder: 'Nama package APK atau hash...' },
@@ -306,11 +303,12 @@ export function ScannerView() {
   const [isCachedResult, setIsCachedResult] = useState(false);
   const [currentScanId, setCurrentScanId] = useState('');
   const [showTopUpModal, setShowTopUpModal] = useState(false);
-  const [activeScanTab, setActiveScanTab] = useState<ScanTabId>('text');
+  const [activeScanTab, setActiveScanTab] = useState<ScanTabId>('link');
   const [isFormFocused, setIsFormFocused] = useState(false);
   const [shakeCards, setShakeCards] = useState(false);
   const [toastResult, setToastResult] = useState<ScanResult | null>(null);
   const [showToast, setShowToast] = useState(false);
+  const [isDragActive, setIsDragActive] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -333,7 +331,7 @@ export function ScannerView() {
 
   useEffect(() => {
     if (scanState === 'results' && credits === 0) {
-      setShakeCards(true);
+      setTimeout(() => setShakeCards(true), 0);
       const timer = setTimeout(() => setShakeCards(false), 400);
       return () => clearTimeout(timer);
     }
@@ -359,16 +357,15 @@ export function ScannerView() {
         return;
       }
 
-      // Validate MIME type  allow APK for apk tab
-      if (activeScanTab !== 'apk' && !ALLOWED_MIME_TYPES.includes(file.type)) {
-        // Allow any file type for APK tab
-        setErrorMessage('Format file tidak didukung. Gunakan PNG, JPEG, WebP, atau GIF.');
-        setScanState('error');
-        return;
-      }
+      // Validate file type for APK
+      if (activeScanTab === 'apk') {
+        const isApkOrBin = file.name.endsWith('.apk') || file.name.endsWith('.bin') || file.type === 'application/vnd.android.package-archive' || file.type === 'application/octet-stream';
+        if (!isApkOrBin) {
+          setErrorMessage('Format file tidak didukung. Gunakan berkas .apk atau .bin.');
+          setScanState('error');
+          return;
+        }
 
-      // For APK tab, allow any file type (will be sent to /api/analyze/file)
-      if (activeScanTab === 'apk' && !file.type.startsWith('image/')) {
         const bytes = await file.arrayBuffer();
         const byteArray = new Uint8Array(bytes);
         let binary = '';
@@ -379,6 +376,74 @@ export function ScannerView() {
         setUploadedFile(file);
         setInputVal(file.name);
         setScanState('idle');
+        return;
+      }
+
+      // Validate MIME type for non-APK tabs (Deepfake & QRIS)
+      if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+        setErrorMessage('Format file tidak didukung. Gunakan PNG, JPEG, WebP, atau GIF.');
+        setScanState('error');
+        return;
+      }
+
+      const base64 = await convertFileToBase64(file);
+      setSelectedImage(base64);
+      setUploadedFile(file);
+      setScanState('idle');
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(false);
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedImage(null);
+    setUploadedFile(null);
+    setInputVal('');
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.size > MAX_FILE_SIZE) {
+        setErrorMessage('Ukuran file terlalu besar. Maksimum 5MB.');
+        setScanState('error');
+        return;
+      }
+
+      if (activeScanTab === 'apk') {
+        const isApkOrBin = file.name.endsWith('.apk') || file.name.endsWith('.bin') || file.type === 'application/vnd.android.package-archive' || file.type === 'application/octet-stream';
+        if (!isApkOrBin) {
+          setErrorMessage('Format file tidak didukung. Gunakan berkas .apk atau .bin.');
+          setScanState('error');
+          return;
+        }
+
+        const bytes = await file.arrayBuffer();
+        const byteArray = new Uint8Array(bytes);
+        let binary = '';
+        byteArray.forEach(b => binary += String.fromCharCode(b));
+        const base64 = btoa(binary);
+        const dataUrl = `data:${file.type || 'application/octet-stream'};base64,${base64}`;
+        setSelectedImage(dataUrl);
+        setUploadedFile(file);
+        setInputVal(file.name);
+        setScanState('idle');
+        return;
+      }
+
+      if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+        setErrorMessage('Format file tidak didukung. Gunakan PNG, JPEG, WebP, atau GIF.');
+        setScanState('error');
         return;
       }
 
@@ -544,27 +609,33 @@ export function ScannerView() {
       const docId = await generateScanId(textToHash, selectedImage);
       setCurrentScanId(docId);
 
-      // Check Cache in Firestore unless forced live (skip for file/qris scans)
-      if (!forceLive && activeScanTab !== 'qris') {
+      // Check Cache via API unless forced live (skip for file/qris scans / guests)
+      if (!forceLive && activeScanTab !== 'qris' && user) {
         try {
-          const docRef = doc(db, 'scans', docId);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            const cachedDoc = docSnap.data();
-            const cachedAge = Date.now() - new Date(cachedDoc.createdAt).getTime();
+          const token = await user.getIdToken();
+          const cacheRes = await fetch(`/api/scans?docId=${encodeURIComponent(docId)}`, {
+            headers: { authorization: `Bearer ${token}` },
+          });
 
-            if (cachedAge < CACHE_MAX_AGE_MS) {
-              const cachedData = cachedDoc.result as ScanResult;
-              setScanResult(cachedData);
-              setToastResult(cachedData);
-              setShowToast(true);
-              setIsCachedResult(true);
-              setTimeout(() => setScanState('results'), 800);
-              return;
+          if (cacheRes.ok) {
+            const cacheData = await cacheRes.json();
+            if (cacheData.cached && cacheData.result) {
+              const cachedDoc = cacheData.result;
+              const cachedAge = Date.now() - new Date(cachedDoc.createdAt).getTime();
+
+              if (cachedAge < CACHE_MAX_AGE_MS) {
+                const cachedResult = cachedDoc.result as ScanResult;
+                setScanResult(cachedResult);
+                setToastResult(cachedResult);
+                setShowToast(true);
+                setIsCachedResult(true);
+                setTimeout(() => setScanState('results'), 800);
+                return;
+              }
             }
           }
         } catch (cacheErr) {
-          console.error("Firestore cache check failed, proceeding to live scan:", cacheErr);
+          console.error("Cache check failed, proceeding to live scan:", cacheErr);
         }
       }
 
@@ -608,21 +679,24 @@ export function ScannerView() {
 
       await consumeCredit(1);
 
-      // Store in Firestore Cache (skip for qris/file)
-      if (activeScanTab !== 'qris') {
+      // Store in Cache via API (skip for qris/file / guests)
+      if (activeScanTab !== 'qris' && user) {
         try {
-          const docRef = doc(db, 'scans', docId);
-          await setDoc(docRef, {
-            result: data,
-            input: {
-              text: inputVal,
-              hasImage: !!selectedImage
+          const token = await user.getIdToken();
+          await fetch('/api/scans', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              authorization: `Bearer ${token}`,
             },
-            userId: user?.uid || null,
-            createdAt: new Date().toISOString()
+            body: JSON.stringify({
+              docId,
+              result: data,
+              input: { text: inputVal, hasImage: !!selectedImage },
+            }),
           });
         } catch (cacheWriteErr) {
-          console.error("Failed to write scan to Firestore cache:", cacheWriteErr);
+          console.error("Failed to write scan to cache via API:", cacheWriteErr);
         }
       }
 
@@ -641,7 +715,7 @@ export function ScannerView() {
   };
 
   return (
-    <div className="min-h-screen -z-0 bg-neutral-950 text-neutral-200 relative">
+    <div className="min-h-screen -z-0 bg-neutral-950 text-neutral-200 relative overflow-x-hidden">
       {/* Linear glow top */}
       <LinearGlow position="top" color="emerald" opacity={30} />
 
@@ -722,16 +796,6 @@ export function ScannerView() {
 
               {/* ─── HEADLINE ─── */}
               <motion.div key={`headline-${activeScanTab}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                {activeScanTab === 'text' && (
-                  <>
-                    <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight break-words">
-                      Ancaman Digital <br className="hidden md:block" />Kini Terlihat Meyakinkan.
-                    </h1>
-                    <p className="text-lg text-neutral-400 mb-6 max-w-2xl">
-                      VERIX membedah narasi penipuan secara real-time. Paste pesan SMS, link, atau upload screenshot WhatsApp  kami ungkap manipulation tactics di baliknya.
-                    </p>
-                  </>
-                )}
                 {activeScanTab === 'link' && (
                   <>
                     <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-medium text-white mb-4 tracking-tight leading-tight break-words">
@@ -782,66 +846,123 @@ export function ScannerView() {
                 const isDeepfake = activeScanTab === 'deepfake';
                 return (
                   <form onSubmit={handleScan} className="w-full max-w-3xl relative">
-                    <div
-                      className="relative group rounded-2xl bg-neutral-900/80 border backdrop-blur-md shadow-2xl overflow-hidden transition-colors"
-                      style={{ borderColor: isFormFocused ? c.accent : 'rgba(38,38,38,1)' }}
-                      onFocusCapture={() => setIsFormFocused(true)}
-                      onBlurCapture={() => setIsFormFocused(false)}
-                    >
-                      {/* Image preview or file info */}
-                      {selectedImage && (
-                        <div className="w-full p-4 border-b border-neutral-800 relative bg-neutral-950/50">
-                          <button
-                            type="button"
-                            onClick={() => { setSelectedImage(null); setUploadedFile(null); }}
-                            className="absolute top-6 right-6 bg-neutral-900 border border-neutral-700 w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-white"
-                          >
-                            ✕
-                          </button>
-                          {activeScanTab === 'apk' && uploadedFile && !uploadedFile.type.startsWith('image/') ? (
-                            <>
-                              <p className="text-xs font-mono mb-2" style={{ color: c.accent }}>ATTACHED APK FILE</p>
-                              <div className="flex items-center gap-4 p-4 rounded-xl border border-neutral-700 bg-neutral-900/50">
-                                <Package className="w-8 h-8 text-amber-400" />
-                                <div>
-                                  <p className="text-sm font-mono text-amber-200">{uploadedFile.name}</p>
-                                  <p className="text-[10px] font-mono text-neutral-500">{(uploadedFile.size / 1024 / 1024).toFixed(1)} MB</p>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept={activeScanTab === 'apk' ? '.apk,.bin,image/*' : 'image/*'}
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+
+                    {activeScanTab === 'deepfake' || activeScanTab === 'qris' || activeScanTab === 'apk' ? (
+                      /* ─── PREMIUM UPLOAD ZONE LAYOUT ─── */
+                      <div 
+                        className="relative group rounded-3xl bg-neutral-900/40 border hover:border-neutral-700/80 backdrop-blur-md shadow-2xl overflow-hidden transition-all duration-300 p-8 flex flex-col items-center justify-center min-h-[280px] w-full"
+                        style={{
+                          boxShadow: isDragActive ? `0 0 40px ${c.accent}15` : 'none',
+                          borderColor: isDragActive ? c.accent : 'rgba(38, 38, 38, 1)'
+                        }}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                      >
+                        {selectedImage ? (
+                          /* File Selected Preview State */
+                          <div className="w-full flex flex-col items-center gap-6 py-4 animate-in fade-in zoom-in-95 duration-200">
+                            {activeScanTab === 'apk' && uploadedFile && !uploadedFile.type.startsWith('image/') ? (
+                              <div className="relative flex flex-col items-center p-6 rounded-2xl border border-neutral-800 bg-neutral-950/80 w-full max-w-md shadow-xl">
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveFile}
+                                  className="absolute top-4 right-4 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-white transition-colors"
+                                  aria-label="Remove file"
+                                >
+                                  ✕
+                                </button>
+                                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
+                                  <Package className="w-8 h-8 text-amber-400 animate-pulse" />
                                 </div>
+                                <p className="text-sm font-mono text-amber-200 font-bold mb-1 break-all text-center">{uploadedFile.name}</p>
+                                <p className="text-xs font-mono text-neutral-500">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
                               </div>
-                            </>
-                          ) : (
-                            <>
-                              <p className="text-xs font-mono mb-2" style={{ color: c.accent }}>
-                                {activeScanTab === 'qris' ? 'QRIS QR CODE' : 'ATTACHED ARTIFACT'}
-                              </p>
-                              <div className="h-32 w-full overflow-hidden rounded-lg flex items-center justify-center">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={selectedImage} alt="Artifact" className="max-h-full object-contain" />
+                            ) : (
+                              <div className="relative flex flex-col items-center p-6 rounded-2xl border border-neutral-800 bg-neutral-950/80 w-full max-w-md shadow-xl">
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveFile}
+                                  className="absolute top-4 right-4 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 w-8 h-8 rounded-full flex items-center justify-center text-neutral-400 hover:text-white transition-colors z-10"
+                                  aria-label="Remove image"
+                                >
+                                  ✕
+                                </button>
+                                <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-neutral-900 flex items-center justify-center border border-neutral-800/80 max-h-48">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={selectedImage} alt="Uploaded preview" className="max-h-full max-w-full object-contain" />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+                                </div>
+                                {uploadedFile && (
+                                  <div className="mt-4 text-center">
+                                    <p className="text-xs font-mono text-neutral-300 truncate max-w-[250px]">{uploadedFile.name}</p>
+                                    <p className="text-[10px] font-mono text-neutral-500 mt-0.5">{(uploadedFile.size / 1024).toFixed(1)} KB</p>
+                                  </div>
+                                )}
                               </div>
-                            </>
-                          )}
-                        </div>
-                      )}
+                            )}
 
-                      <div className="relative flex min-h-[4rem] items-center">
-                        <div className="pl-6 shrink-0 hidden sm:block" style={{ color: c.accent }}>
-                          <TabIcon className="w-6 h-6" />
-                        </div>
-
-                        {isDeepfake ? (
-                          <div className="flex-1 flex items-center gap-3 px-4 sm:px-6 py-5">
                             <button
-                              type="button"
-                              onClick={() => fileInputRef.current?.click()}
-                              className="flex-1 flex flex-col items-center justify-center gap-2 py-8 rounded-xl border-2 border-dashed transition-colors"
-                              style={{ borderColor: `${c.accent}40`, backgroundColor: `${c.accent}08` }}
+                              type="submit"
+                              className="px-8 py-3.5 font-bold font-mono tracking-wider rounded-xl transition-all duration-300 text-neutral-950 flex items-center gap-2 hover:scale-[1.02] active:scale-95 cursor-pointer"
+                              style={{
+                                backgroundColor: c.accent,
+                                boxShadow: `0 0 30px ${c.accent}40`,
+                              }}
                             >
-                              <UploadCloud className="w-8 h-8" style={{ color: c.accent }} />
-                              <span className="text-sm text-neutral-400 font-mono">Klik untuk upload foto</span>
-                              <span className="text-[10px] text-neutral-600">PNG, JPEG, WebP  Maks 5MB</span>
+                              MULAI DETEKSI
+                              <Zap className="w-4 h-4 text-neutral-950 animate-pulse" />
                             </button>
                           </div>
                         ) : (
+                          /* Upload Zone Idle State */
+                          <div 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-full flex flex-col items-center justify-center gap-5 py-8 px-4 cursor-pointer select-none group/zone"
+                          >
+                            <div 
+                              className="w-16 h-16 rounded-2xl border flex items-center justify-center transition-all duration-300 relative shadow-lg"
+                              style={{ 
+                                backgroundColor: `${c.accent}08`, 
+                                borderColor: `${c.accent}30`
+                              }}
+                            >
+                              <UploadCloud className="w-8 h-8 transition-transform duration-300 group-hover/zone:-translate-y-1" style={{ color: c.accent }} />
+                              <div className="absolute inset-0 rounded-2xl opacity-0 group-hover/zone:opacity-100 transition-opacity duration-300" style={{ border: `1px solid ${c.accentDim}`, boxShadow: `0 0 20px ${c.accentDim}` }} />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-mono text-neutral-300 font-semibold tracking-wide group-hover/zone:text-white transition-colors">
+                                {activeScanTab === 'deepfake' && 'Pilih atau drop foto wajah di sini'}
+                                {activeScanTab === 'qris' && 'Pilih atau drop screenshot QRIS di sini'}
+                                {activeScanTab === 'apk' && 'Pilih atau drop berkas APK di sini'}
+                              </p>
+                              <p className="text-xs text-neutral-500 font-sans mt-2">
+                                {activeScanTab === 'apk' ? 'Mendukung format APK, BIN, PNG, JPG | Maks 5MB' : 'Mendukung format PNG, JPG, WEBP | Maks 5MB'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* ─── ORIGINAL TEXT/LINK LAYOUT ─── */
+                      <div
+                        className="relative group rounded-2xl bg-neutral-900/80 border backdrop-blur-md shadow-2xl overflow-hidden transition-colors"
+                        style={{ borderColor: isFormFocused ? c.accent : 'rgba(38,38,38,1)' }}
+                        onFocusCapture={() => setIsFormFocused(true)}
+                        onBlurCapture={() => setIsFormFocused(false)}
+                      >
+                        <div className="relative flex min-h-[4rem] items-center">
+                          <div className="pl-6 shrink-0 hidden sm:block" style={{ color: c.accent }}>
+                            <TabIcon className="w-6 h-6" />
+                          </div>
+
                           <input
                             type="text"
                             value={inputVal}
@@ -849,44 +970,24 @@ export function ScannerView() {
                             placeholder={t.placeholder}
                             className="w-full bg-transparent text-white px-4 sm:px-6 py-5 font-mono text-sm sm:text-base focus:outline-none placeholder:text-neutral-600 focus:ring-0"
                           />
-                        )}
 
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          accept={activeScanTab === 'apk' ? '.apk,.bin,image/*' : 'image/*'}
-                          className="hidden"
-                          onChange={handleFileChange}
-                        />
-
-                        <div className="pr-4 shrink-0 flex items-center gap-2">
-                          {!isDeepfake && (
+                          <div className="pr-4 shrink-0 flex items-center gap-2">
                             <button
-                              type="button"
-                              onClick={() => fileInputRef.current?.click()}
-                              title={activeScanTab === 'apk' ? "Upload APK" : "Upload Bukti Screenshot"}
-                              className="p-3 text-neutral-400 bg-neutral-800/80 rounded-xl transition-colors shrink-0"
-                              onMouseEnter={(e) => e.currentTarget.style.color = c.accent}
-                              onMouseLeave={(e) => e.currentTarget.style.color = '#a3a3a3'}
+                              type="submit"
+                              disabled={!inputVal.trim()}
+                              className="px-6 py-3 font-medium rounded-xl transition-colors text-neutral-950 disabled:opacity-50 disabled:shadow-none flex items-center gap-2 cursor-pointer"
+                              style={{
+                                backgroundColor: c.accent,
+                                boxShadow: !inputVal.trim() ? 'none' : `0 0 20px ${c.accent}40`,
+                              }}
                             >
-                              <UploadCloud className="w-5 h-5" />
+                              <span className="hidden sm:inline">Analyze</span>
+                              <Zap className="w-4 h-4 sm:hidden" />
                             </button>
-                          )}
-                          <button
-                            type="submit"
-                            disabled={isDeepfake ? !selectedImage : !inputVal.trim() && !selectedImage}
-                            className="px-6 py-3 font-medium rounded-xl transition-colors text-neutral-950 disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
-                            style={{
-                              backgroundColor: c.accent,
-                              boxShadow: !inputVal.trim() && !selectedImage ? 'none' : `0 0 20px ${c.accent}40`,
-                            }}
-                          >
-                            <span className="hidden sm:inline">{isDeepfake ? 'Deteksi' : 'Analyze'}</span>
-                            <Zap className="w-4 h-4 sm:hidden" />
-                          </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </form>
                 );
               })()}

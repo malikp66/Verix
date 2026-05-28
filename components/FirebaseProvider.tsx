@@ -2,8 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { auth, db } from '../lib/firebase';
-import { doc, getDocFromServer, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth } from '../lib/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -24,43 +23,20 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Validate connection
-    async function testConnection() {
-      try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
-      } catch (error) {
-        if (error instanceof Error) {
-          if (error.message.includes('the client is offline')) {
-            console.error("Firebase: Cannot reach Firestore. Check network/Firebase configuration.");
-          } else if (error.message.includes('permission')) {
-            console.warn("Firebase: Connection test blocked by security rules (expected until rules are deployed).");
-          } else {
-            console.error("Firebase connection test failed:", error.message);
-          }
-        }
-      }
-    }
-    testConnection();
-
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       setLoading(false);
-      
+
       if (user) {
         try {
-          const userRef = doc(db, 'users', user.uid);
-          const snap = await getDocFromServer(userRef);
-          if (!snap.exists()) {
-            await setDoc(userRef, {
-              email: user.email,
-              displayName: user.displayName,
-              photoURL: user.photoURL,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp()
-            });
-          }
+          const token = await user.getIdToken();
+          await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+          });
         } catch (error) {
-          console.error("Error syncing user to Firestore", error);
+          console.error("Error syncing user to Firestore via API:", error);
         }
       }
     });

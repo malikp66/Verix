@@ -10,7 +10,7 @@ export function SettingsView() {
   const [aiModel, setAiModel] = useState(true);
 
   return (
-    <div className="flex-1 w-full flex flex-col bg-neutral-950 text-white overflow-y-auto relative">
+    <div className="flex-1 w-full flex flex-col bg-neutral-950 text-white overflow-y-auto overflow-x-hidden relative">
       {/* Linear glow top */}
       <LinearGlow position="top" color="emerald" opacity={35} />
       

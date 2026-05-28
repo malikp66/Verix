@@ -1,4 +1,4 @@
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import { Inter, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
@@ -24,10 +24,16 @@ export const metadata: Metadata = {
   description: 'AI Scam Intelligence Platform for Indonesia. VERIX membantu mendeteksi phishing, scam WhatsApp, QRIS palsu, deepfake, dan manipulasi digital.',
 };
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="id" className={`dark ${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
-      <body className="bg-neutral-950 text-neutral-50 font-sans antialiased min-h-screen selection:bg-emerald-500/30 selection:text-emerald-200" suppressHydrationWarning>
+    <html lang="id" className={`dark ${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} overflow-x-hidden`}>
+      <body className="bg-neutral-950 text-neutral-50 font-sans antialiased min-h-screen selection:bg-emerald-500/30 selection:text-emerald-200 overflow-x-hidden" suppressHydrationWarning>
         <FirebaseProvider>
           {children}
         </FirebaseProvider>

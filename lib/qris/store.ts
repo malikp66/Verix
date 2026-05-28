@@ -1,12 +1,26 @@
-import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, updateDoc, increment } from "firebase/firestore";
+import { auth } from "@/lib/firebase";
+
+async function getToken(): Promise<string | null> {
+  if (!auth.currentUser) return null;
+  try {
+    return await auth.currentUser.getIdToken();
+  } catch {
+    return null;
+  }
+}
 
 export async function getReportCount(merchantName: string): Promise<number> {
   try {
-    const ref = doc(db, "qris-blacklist", merchantName.toLowerCase().trim());
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return 0;
-    return snap.data().reports || 0;
+    const token = await getToken();
+    if (!token) return 0;
+
+    const res = await fetch(`/api/qris/report?merchant=${encodeURIComponent(merchantName)}`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return data.reports || 0;
   } catch {
     return 0;
   }
@@ -14,22 +28,17 @@ export async function getReportCount(merchantName: string): Promise<number> {
 
 export async function incrementReport(merchantName: string): Promise<void> {
   try {
-    const ref = doc(db, "qris-blacklist", merchantName.toLowerCase().trim());
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      await updateDoc(ref, {
-        reports: increment(1),
-        lastReportedAt: new Date().toISOString(),
-      });
-    } else {
-      await setDoc(ref, {
-        name: merchantName.trim(),
-        reports: 1,
-        flagged: true,
-        createdAt: new Date().toISOString(),
-        lastReportedAt: new Date().toISOString(),
-      });
-    }
+    const token = await getToken();
+    if (!token) return;
+
+    await fetch('/api/qris/report', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ merchant: merchantName }),
+    });
   } catch (e) {
     console.warn("[QRIS Store] Failed to increment report:", e);
   }

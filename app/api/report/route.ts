@@ -1,42 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// In a real environment with Firebase Admin SDK, we would save to Firestore here.
-// Since we are using Firebase Client SDK which requires browser context for Auth,
-// we will simulate the backend saving process and return a slug, to maintain the hybrid scalable architecture MVP.
-// Alternatively, frontend can save directly to Firestore using client SDK after receiving the analysis result.
-
-// Simulating Firestore report collection
-const reportsDb = new Map();
+import { adminAuth, adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, analysisResult } = await req.json();
+    const authHeader = req.headers.get('authorization');
+    let userId = "guest";
 
-    // 1. Validate Payload
+    if (authHeader) {
+      try {
+        const token = authHeader.replace("Bearer ", "");
+        const decoded = await adminAuth.verifyIdToken(token);
+        userId = decoded.uid;
+      } catch {}
+    }
+
+    const { analysisResult } = await req.json();
+
     if (!analysisResult || !analysisResult.severity_score) {
       return NextResponse.json({ error: "Invalid analysis result" }, { status: 400 });
     }
 
-    // 2. Generate sharing slug
     const slugId = Math.random().toString(36).substring(2, 8);
-    const slug = `abc${slugId}`; // e.g. abc123_random
+    const slug = `abc${slugId}`;
 
-    // 3. Save to "Database"
-    const reportData = {
+    const db = adminDb();
+    await db.collection("reports").doc(slug).set({
       id: slug,
-      userId: userId || "guest",
+      userId,
       result: analysisResult,
       createdAt: new Date().toISOString(),
-    };
-    
-    // Using in-memory map for the MVP
-    reportsDb.set(slug, reportData);
+    });
 
     return NextResponse.json({
       success: true,
       slug,
       share_url: `/report/${slug}`,
-      report: reportData
     });
   } catch (error: any) {
     console.error("Report Save API error:", error);
@@ -51,10 +49,17 @@ export async function GET(req: NextRequest) {
        return NextResponse.json({ error: "Slug is required" }, { status: 400 });
    }
 
-   const report = reportsDb.get(slug);
-   if (!report) {
-       return NextResponse.json({ error: "Report not found" }, { status: 404 });
-   }
+   try {
+     const db = adminDb();
+     const snap = await db.collection("reports").doc(slug).get();
 
-   return NextResponse.json(report);
+     if (!snap.exists) {
+       return NextResponse.json({ error: "Report not found" }, { status: 404 });
+     }
+
+     return NextResponse.json(snap.data());
+   } catch (error) {
+     console.error("Report GET error:", error);
+     return NextResponse.json({ error: "Failed to retrieve report" }, { status: 500 });
+   }
 }

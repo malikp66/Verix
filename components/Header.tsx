@@ -176,6 +176,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
             {/* Mobile Hamburger */}
             <button
               onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Buka menu navigasi"
               className="w-10 h-10 rounded-lg bg-neutral-900/50 border border-neutral-800 flex items-center justify-center text-neutral-400 hover:text-white lg:hidden"
             >
               <Menu className="w-5 h-5" />
@@ -201,7 +202,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 bottom-0 w-[280px] z-[70] bg-neutral-950 border-l border-neutral-800 shadow-2xl flex flex-col lg:hidden"
+              className="fixed top-0 right-0 bottom-0 w-[280px] max-w-[85vw] z-[70] bg-neutral-950 border-l border-neutral-800 shadow-2xl flex flex-col lg:hidden"
             >
               <div className="p-5 border-b border-neutral-800/50 flex items-center justify-between bg-neutral-900/30">
                  <div className="flex items-center gap-2">
@@ -212,6 +213,7 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
                  </div>
                  <button
                    onClick={() => setIsMobileMenuOpen(false)}
+                   aria-label="Tutup menu navigasi"
                    className="w-8 h-8 flex items-center justify-center rounded-md bg-neutral-900/50 border border-neutral-800 text-neutral-400 hover:text-white transition-colors"
                  >
                    <X className="w-4 h-4" />

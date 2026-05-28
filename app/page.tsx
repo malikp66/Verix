@@ -51,7 +51,7 @@ export default function Home() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, ease: 'easeOut' }}
-          className="flex flex-col min-h-screen bg-neutral-950"
+          className="flex flex-col min-h-screen bg-neutral-950 overflow-x-hidden"
         >
           <Header activeTab={activeTab} setActiveTab={setActiveTab} />
           <div className="flex-1 w-full min-w-0 flex flex-col">
