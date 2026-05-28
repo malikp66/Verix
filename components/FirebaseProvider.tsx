@@ -23,13 +23,12 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      setLoading(false);
-
-      if (user) {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
         try {
-          const token = await user.getIdToken();
+          const token = await firebaseUser.getIdToken();
+          // Ensure user document exists in Firestore BEFORE updating state
+          // This prevents the credits hook from reading 0 credits
           await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -39,6 +38,10 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           console.error("Error syncing user to Firestore via API:", error);
         }
       }
+
+      // Now set user state — downstream hooks (useAICredits) will see the correct Firestore data
+      setUser(firebaseUser);
+      setLoading(false);
     });
 
     return () => unsubscribe();

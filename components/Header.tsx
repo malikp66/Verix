@@ -1,20 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, ChevronDown, Menu, X, Sparkles } from 'lucide-react';
+import { Shield, ChevronDown, Menu, X, Sparkles, LogOut, CreditCard } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { LinearGlow } from './ui/linear-glow';
 import { useIntel } from './IntelligenceProvider';
 import { useAuth } from './FirebaseProvider';
 import { useAICredits } from '@/hooks/use-ai-credits';
 import { CreditTopUpModal } from './CreditTopUpModal';
+import { BillingHistoryModal } from './BillingHistoryModal';
 
 export function Header({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (id: string) => void }) {
   const [scrolled, setScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [showBillingModal, setShowBillingModal] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const intel = useIntel();
-  const { user, login } = useAuth();
+  const { user, login, logout } = useAuth();
   const { credits, isCreditLoading, topUpCredits } = useAICredits();
 
   const menuItems = [
@@ -28,6 +35,16 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleTabChange = (id: string) => {
@@ -150,19 +167,86 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
             </div>
 
             {/* Auth Area */}
+            {/* Auth Area */}
             {user ? (
-              <div className="hidden lg:flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2 hover:border-neutral-700 transition-colors">
-                <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-xs font-mono font-bold select-none shrink-0">
-                  {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-xs font-semibold text-white leading-tight truncate max-w-[120px]">
-                    {user.displayName || user.email?.split('@')[0]}
-                  </span>
-                  <span className="text-[9px] font-mono text-neutral-500 leading-none mt-0.5">
-                    Premium User
-                  </span>
-                </div>
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                  className="hidden lg:flex items-center gap-3 bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2 hover:border-neutral-700 transition-colors text-left cursor-pointer"
+                >
+                  <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-xs font-mono font-bold select-none shrink-0">
+                    {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-xs font-semibold text-white leading-tight truncate max-w-[120px]">
+                      {user.displayName || user.email?.split('@')[0]}
+                    </span>
+                    <span className="text-[9px] font-mono text-neutral-500 leading-none mt-0.5">
+                      Premium User
+                    </span>
+                  </div>
+                  <ChevronDown className={cn("w-4 h-4 text-neutral-400 transition-transform duration-200", profileDropdownOpen && "rotate-180")} />
+                </button>
+
+                <AnimatePresence>
+                  {profileDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 mt-2 w-56 rounded-xl border border-neutral-800 bg-neutral-950/95 backdrop-blur-xl shadow-2xl p-2 z-50 flex flex-col gap-1"
+                    >
+                      {/* User info section */}
+                      <div className="px-3 py-2 border-b border-neutral-800/60 mb-1">
+                        <p className="text-xs font-semibold text-white truncate">
+                          {user.displayName || user.email?.split('@')[0]}
+                        </p>
+                        <p className="text-[10px] font-mono text-neutral-500 truncate mt-0.5">
+                          {user.email}
+                        </p>
+                      </div>
+                      
+                      <button
+                        onClick={() => {
+                          setShowBillingModal(true);
+                          setProfileDropdownOpen(false);
+                        }}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-mono text-neutral-300 hover:text-white hover:bg-neutral-900 rounded-lg transition-colors text-left cursor-pointer w-full"
+                      >
+                        <CreditCard className="w-4 h-4 text-neutral-400" />
+                        Billing History
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          handleTabChange('settings');
+                          setProfileDropdownOpen(false);
+                        }}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-mono text-neutral-300 hover:text-white hover:bg-neutral-900 rounded-lg transition-colors text-left cursor-pointer w-full"
+                      >
+                        <svg className="w-4 h-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Settings
+                      </button>
+
+                      <div className="h-px bg-neutral-800/60 my-1" />
+
+                      <button
+                        onClick={() => {
+                          logout();
+                          setProfileDropdownOpen(false);
+                        }}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-mono text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors text-left cursor-pointer w-full"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Logout
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ) : (
               <button 
@@ -243,42 +327,67 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
               
               <div className="p-5 border-t border-neutral-800/50 bg-neutral-900/30 mb-safe flex flex-col gap-4">
                  {user && (
-                   <div className="flex items-center gap-3">
-                     <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-xs font-mono font-bold select-none shrink-0">
-                       {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                   <>
+                     <div className="flex items-center gap-3">
+                       <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-xs font-mono font-bold select-none shrink-0">
+                         {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                       </div>
+                       <div className="flex flex-col flex-1 overflow-hidden text-left">
+                         <span className="text-sm font-medium text-neutral-300 truncate">
+                           {user.displayName || user.email?.split('@')[0]}
+                         </span>
+                         <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1.5 mt-0.5">
+                           <Sparkles className="w-3 h-3" /> {isCreditLoading ? '... ' : credits} AI Credits
+                           <button 
+                             onClick={() => { setShowTopUpModal(true); setIsMobileMenuOpen(false); }} 
+                             className="ml-1 px-1.5 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[8px] font-bold font-mono rounded cursor-pointer animate-pulse"
+                           >
+                             + TOP UP
+                           </button>
+                         </span>
+                       </div>
                      </div>
-                     <div className="flex flex-col flex-1 overflow-hidden">
-                       <span className="text-sm font-medium text-neutral-300 truncate">
-                         {user.displayName || user.email?.split('@')[0]}
+
+                     <div className="grid grid-cols-2 gap-2 mt-1">
+                       <button
+                         onClick={() => {
+                           setShowBillingModal(true);
+                           setIsMobileMenuOpen(false);
+                         }}
+                         className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl text-xs font-mono text-neutral-300 transition-colors cursor-pointer w-full"
+                       >
+                         <CreditCard className="w-3.5 h-3.5" />
+                         Billing
+                       </button>
+                       <button
+                         onClick={() => {
+                           logout();
+                           setIsMobileMenuOpen(false);
+                         }}
+                         className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-xs font-mono text-red-450 transition-colors cursor-pointer w-full"
+                       >
+                         <LogOut className="w-3.5 h-3.5" />
+                         Logout
+                       </button>
+                     </div>
+                   </>
+                 )}
+                 {!user && (
+                   <div className="flex items-center justify-between">
+                     <span className="text-[10px] font-mono text-neutral-500 tracking-wider">GUEST ACCESS</span>
+                     <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                       <Sparkles className="w-3 h-3 text-emerald-400" />
+                       <span className="text-[10px] font-mono text-emerald-300">
+                         {isCreditLoading ? '... ' : credits} AI Credits
                        </span>
-                       <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1.5">
-                         <Sparkles className="w-3 h-3" /> {isCreditLoading ? '... ' : credits} AI Credits
-                          <button 
-                            onClick={() => setShowTopUpModal(true)} 
-                            className="ml-1 px-1 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[8px] font-bold font-mono rounded cursor-pointer"
-                          >
-                            + TOP UP
-                          </button>
-                        </span>
-                      </div>
+                       <button 
+                         onClick={() => { setShowTopUpModal(true); setIsMobileMenuOpen(false); }} 
+                         className="ml-1 px-1 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[8px] font-bold font-mono rounded cursor-pointer"
+                       >
+                         + TOP UP
+                       </button>
                     </div>
-                  )}
-                  {!user && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono text-neutral-500 tracking-wider">GUEST ACCESS</span>
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                        <Sparkles className="w-3 h-3 text-emerald-400" />
-                        <span className="text-[10px] font-mono text-emerald-300">
-                          {isCreditLoading ? '... ' : credits} AI Credits
-                        </span>
-                        <button 
-                          onClick={() => setShowTopUpModal(true)} 
-                          className="ml-1 px-1 py-0.5 bg-emerald-400 hover:bg-emerald-300 text-neutral-950 text-[8px] font-bold font-mono rounded cursor-pointer"
-                        >
-                          + TOP UP
-                        </button>
-                     </div>
-                   </div>
+                  </div>
                  )}
                  {user ? (
                     <button 
@@ -314,6 +423,10 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
         topUpCredits={topUpCredits}
         credits={credits}
         onLogin={login}
+      />
+      <BillingHistoryModal
+        isOpen={showBillingModal}
+        onClose={() => setShowBillingModal(false)}
       />
     </>
   );
