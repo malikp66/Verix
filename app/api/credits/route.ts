@@ -42,13 +42,13 @@ export async function POST(req: NextRequest) {
     const userRef = db.collection("users").doc(decoded.uid);
 
     if (action === "consume") {
-      await userRef.update({
+      await userRef.set({
         aiCredits: FieldValue.increment(-amount),
-      });
+      }, { merge: true });
     } else if (action === "topup") {
-      await userRef.update({
+      await userRef.set({
         aiCredits: FieldValue.increment(amount),
-      });
+      }, { merge: true });
     }
 
     const snap = await userRef.get();

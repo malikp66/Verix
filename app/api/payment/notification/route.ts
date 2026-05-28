@@ -39,9 +39,9 @@ export async function POST(request: NextRequest) {
           const { userId, credits } = orderData;
 
           if (userId && credits) {
-            await db.collection('users').doc(userId).update({
+            await db.collection('users').doc(userId).set({
               aiCredits: FieldValue.increment(credits),
-            });
+            }, { merge: true });
           }
 
           await orderRef.update({
