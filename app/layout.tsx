@@ -39,7 +39,8 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
         </FirebaseProvider>
         <Script
           src={
-            process.env.MIDTRANS_IS_PRODUCTION === 'true'
+            (process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true' || 
+             (process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY && !process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY.startsWith('SB-')))
               ? 'https://app.midtrans.com/snap/snap.js'
               : 'https://app.sandbox.midtrans.com/snap/snap.js'
           }

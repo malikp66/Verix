@@ -7,7 +7,7 @@ const PRICING: Record<string, { credits: number; price: number; label: string }>
   pro: { credits: 100, price: 80000, label: '100 AI Credits (Hemat 20%)' },
 };
 
-const MIDTRANS_API = process.env.MIDTRANS_IS_PRODUCTION === 'true'
+const MIDTRANS_API = (process.env.MIDTRANS_IS_PRODUCTION === 'true' || process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true')
   ? 'https://app.midtrans.com/snap/v1/transactions'
   : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
 
