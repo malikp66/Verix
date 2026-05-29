@@ -79,6 +79,27 @@ export async function cacheDel(key: string): Promise<void> {
   memoryCache.delete(key);
 }
 
+export async function acquireLock(key: string, ttlSeconds: number): Promise<boolean> {
+  const r = getClient();
+  if (r) {
+    try {
+      const result = await r.set(key, "true", "EX", ttlSeconds, "NX");
+      return result === "OK";
+    } catch (e) {
+      console.warn(`[Redis] acquireLock ${key} failed:`, e);
+      return false;
+    }
+  }
+  const mem = memoryCache.get(key);
+  if (mem && mem.expiry > Date.now()) return false;
+  memoryCache.set(key, { data: "true", expiry: Date.now() + ttlSeconds * 1000 });
+  return true;
+}
+
+export async function releaseLock(key: string): Promise<void> {
+  await cacheDel(key);
+}
+
 // ─── Sorted Set Operations ───
 
 export async function cacheZadd(key: string, score: number, member: string): Promise<number> {

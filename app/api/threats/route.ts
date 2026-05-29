@@ -2,13 +2,11 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { buildInsights, ThreatItem } from "@/lib/threatFeeds";
+import { cacheGet, cacheSet, acquireLock, releaseLock } from "@/lib/redis";
 
-let globalCache: {
-  threats: ThreatItem[];
-  lastFetched: number;
-} | null = null;
-
-const CACHE_TTL = 3 * 60 * 1000;
+const THREATS_CACHE_KEY = "threats:cache";
+const THREATS_LOCK_KEY = "lock:threats:fetch";
+const CACHE_TTL_SECONDS = 180; // 3 minutes
 
 async function fetchWithTimeout(url: string, options = {}, timeout = 2500) {
   const controller = new AbortController();
@@ -84,17 +82,17 @@ async function enrichWithUrlScan(threats: ThreatItem[]): Promise<void> {
           "API-Key": apiKey,
         },
         body: JSON.stringify({ url: t.url, visibility: "public" }),
-      }, 3000);
+      }, 5000);
       if (!submitRes.ok) return;
       const submitData = await submitRes.json();
       const uuid = submitData.uuid;
       if (!uuid) return;
 
-      await new Promise((r) => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 3000));
 
       const resultRes = await fetchWithTimeout(`https://urlscan.io/api/v1/result/${uuid}/`, {
         headers: { "API-Key": apiKey },
-      }, 3000);
+      }, 5000);
       if (!resultRes.ok) return;
       const resultData = await resultRes.json();
       t.urlscan_screenshot = resultData?.task?.screenshotURL || resultData?.screenshot || undefined;
@@ -194,7 +192,7 @@ async function fetchUrlScanIndonesia(): Promise<ThreatItem[]> {
     const res = await fetchWithTimeout(
       `https://urlscan.io/api/v1/search/?q=${query}&size=10`,
       { headers: { "API-Key": apiKey } },
-      3000
+      8000
     );
     if (!res.ok) return [];
     const data = await res.json();
@@ -247,74 +245,99 @@ function resolveBrands(threats: ThreatItem[]) {
 }
 
 export async function GET() {
-  const now = Date.now();
-
-  if (globalCache && now - globalCache.lastFetched < CACHE_TTL) {
+  const cached = await cacheGet<ThreatItem[]>(THREATS_CACHE_KEY);
+  if (cached) {
     return NextResponse.json({
       success: true,
-      data: globalCache.threats,
-      insights: buildInsights(globalCache.threats)
+      data: cached,
+      insights: buildInsights(cached)
     }, {
       headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30" }
     });
   }
 
-  console.log("[Threats API] Cache expired. Fetching all threat sources...");
-
-  const [abuseCh, vtThreats, urlscanThreats] = await Promise.allSettled([
-    fetchRecentAbuseCh(),
-    fetchVirusTotalIndonesia(),
-    fetchUrlScanIndonesia(),
-  ]);
-
-  let allThreats: ThreatItem[] = [];
-
-  if (abuseCh.status === "fulfilled") allThreats.push(...abuseCh.value);
-  else console.warn("Abuse.ch fetch failed:", abuseCh.reason);
-
-  if (vtThreats.status === "fulfilled") allThreats.push(...vtThreats.value);
-  else console.warn("VirusTotal fetch failed:", vtThreats.reason);
-
-  if (urlscanThreats.status === "fulfilled") allThreats.push(...urlscanThreats.value);
-  else console.warn("URLScan.io fetch failed:", urlscanThreats.reason);
-
-  const unique = new Map<string, ThreatItem>();
-  allThreats.forEach(t => {
-    const key = t.domain || t.url || t.id;
-    if (!unique.has(key)) unique.set(key, t);
-  });
-  allThreats = Array.from(unique.values());
-
-  resolveBrands(allThreats);
-
-  const abuseChThreats = allThreats.filter(t => t.source === "Abuse.ch URLhaus");
-  const nonAbuseThreats = allThreats.filter(t => t.source !== "Abuse.ch URLhaus");
-
-  if (abuseChThreats.length > 0) {
-    await Promise.allSettled([
-      enrichWithUrlScan(abuseChThreats),
-      enrichWithGoogleSafeBrowsing(abuseChThreats),
-    ]);
+  // Cache miss. Acquire lock to fetch
+  const lockAcquired = await acquireLock(THREATS_LOCK_KEY, 30);
+  if (!lockAcquired) {
+    // Stale-While-Revalidate lock wait: check cache again after a brief sleep
+    await new Promise(r => setTimeout(r, 1500));
+    const retryCached = await cacheGet<ThreatItem[]>(THREATS_CACHE_KEY);
+    if (retryCached) {
+      return NextResponse.json({
+        success: true,
+        data: retryCached,
+        insights: buildInsights(retryCached)
+      });
+    }
+    // Return empty fallback instead of blocking indefinitely
+    return NextResponse.json({
+      success: true,
+      data: [],
+      insights: buildInsights([])
+    });
   }
 
-  const combinedThreats = [...nonAbuseThreats, ...abuseChThreats];
+  try {
+    console.log("[Threats API] Cache expired. Fetching all threat sources...");
 
-  combinedThreats.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const [abuseCh, vtThreats, urlscanThreats] = await Promise.allSettled([
+      fetchRecentAbuseCh(),
+      fetchVirusTotalIndonesia(),
+      fetchUrlScanIndonesia(),
+    ]);
 
-  globalCache = {
-    threats: combinedThreats,
-    lastFetched: now
-  };
+    let allThreats: ThreatItem[] = [];
 
-  const insights = buildInsights(combinedThreats);
+    if (abuseCh.status === "fulfilled") allThreats.push(...abuseCh.value);
+    else console.warn("Abuse.ch fetch failed:", abuseCh.reason);
 
-  return NextResponse.json({
-    success: true,
-    data: combinedThreats,
-    insights
-  }, {
-    headers: {
-      "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30"
+    if (vtThreats.status === "fulfilled") allThreats.push(...vtThreats.value);
+    else console.warn("VirusTotal fetch failed:", vtThreats.reason);
+
+    if (urlscanThreats.status === "fulfilled") allThreats.push(...urlscanThreats.value);
+    else console.warn("URLScan.io fetch failed:", urlscanThreats.reason);
+
+    const unique = new Map<string, ThreatItem>();
+    allThreats.forEach(t => {
+      const key = t.domain || t.url || t.id;
+      if (!unique.has(key)) unique.set(key, t);
+    });
+    allThreats = Array.from(unique.values());
+
+    resolveBrands(allThreats);
+
+    const abuseChThreats = allThreats.filter(t => t.source === "Abuse.ch URLhaus");
+    const nonAbuseThreats = allThreats.filter(t => t.source !== "Abuse.ch URLhaus");
+
+    if (abuseChThreats.length > 0) {
+      await Promise.allSettled([
+        enrichWithUrlScan(abuseChThreats),
+        enrichWithGoogleSafeBrowsing(abuseChThreats),
+      ]);
     }
-  });
+
+    const combinedThreats = [...nonAbuseThreats, ...abuseChThreats];
+
+    combinedThreats.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    // Update shared cache in Redis
+    await cacheSet(THREATS_CACHE_KEY, combinedThreats, CACHE_TTL_SECONDS);
+
+    const insights = buildInsights(combinedThreats);
+
+    return NextResponse.json({
+      success: true,
+      data: combinedThreats,
+      insights
+    }, {
+      headers: {
+        "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30"
+      }
+    });
+  } catch (error) {
+    console.error("Threats fetch failed:", error);
+    return NextResponse.json({ success: false, error: "Failed to fetch threats" }, { status: 500 });
+  } finally {
+    await releaseLock(THREATS_LOCK_KEY);
+  }
 }
