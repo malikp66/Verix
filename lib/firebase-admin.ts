@@ -14,7 +14,19 @@ function initAdmin() {
     }
 
     try {
-      const serviceAccount = JSON.parse(key);
+      let cleanedKey = key.trim();
+      if (cleanedKey.startsWith("'") && cleanedKey.endsWith("'")) {
+        cleanedKey = cleanedKey.slice(1, -1);
+      } else if (cleanedKey.startsWith('"') && cleanedKey.endsWith('"')) {
+        cleanedKey = cleanedKey.slice(1, -1);
+      }
+
+      const serviceAccount = JSON.parse(cleanedKey);
+
+      if (serviceAccount.private_key) {
+        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+      }
+
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
         databaseURL: "https://juaravibecoding-496905-default-rtdb.asia-southeast1.firebasedatabase.app/"
@@ -81,16 +93,23 @@ export function adminRtdb(): Database {
     return getDatabase();
   } catch (e) {
     console.warn("getDatabase() failed. Returning a dummy database reference.");
+    const dummyRef = {
+      once: () => Promise.resolve({ val: () => null }),
+      set: () => Promise.resolve(),
+      update: () => Promise.resolve(),
+      transaction: (cb: any) => {
+        if (typeof cb === 'function') {
+          cb(20);
+        }
+        return Promise.resolve();
+      },
+    };
     return new Proxy({} as any, {
       get(target, prop) {
-        return () => ({
-          ref: () => ({
-            once: () => Promise.resolve({ val: () => null }),
-            set: () => Promise.resolve(),
-            update: () => Promise.resolve(),
-            transaction: () => Promise.resolve(),
-          })
-        });
+        if (prop === 'ref') {
+          return () => dummyRef;
+        }
+        return () => dummyRef;
       }
     }) as unknown as Database;
   }
