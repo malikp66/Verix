@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { adminAuth, adminDb, adminRtdb } from '@/lib/firebase-admin';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,6 +15,8 @@ export async function POST(req: NextRequest) {
     const userRef = db.collection('users').doc(uid);
     const snap = await userRef.get();
 
+    let creditsToSet = 20;
+
     if (!snap.exists) {
       await userRef.set({
         email: email || '',
@@ -24,6 +26,17 @@ export async function POST(req: NextRequest) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+    } else {
+      const data = snap.data();
+      creditsToSet = data?.aiCredits ?? 20;
+    }
+
+    // Sync credits to RTDB for real-time tracking if not set
+    const rtdb = adminRtdb();
+    const creditRef = rtdb.ref(`users/${uid}/credits`);
+    const rtdbSnap = await creditRef.once('value');
+    if (rtdbSnap.val() === null) {
+      await creditRef.set(creditsToSet);
     }
 
     return NextResponse.json({ uid, email, name, picture });

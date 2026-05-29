@@ -192,48 +192,55 @@ export async function analyzeDeepfake(imageBase64: string, exifData?: ExifTrace)
   // OpenRouter fallback (Gemini failed or unavailable)
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   if (openRouterKey) {
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15_000);
-      const fullImageUrl = imageBase64; // Already data:image/...;base64,...
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${openRouterKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": process.env.APP_URL || "https://verix.id",
-          "X-Title": "VERIX Deepfake Detection"
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: "mistralai/pixtral-large-latest",
-          messages: [{
-            role: "user",
-            content: [
-              { type: "image_url", image_url: { url: fullImageUrl } },
-              { type: "text", text: buildDeepfakePrompt(exifData) }
-            ]
-          }],
-          temperature: 0.1,
-          top_p: 0.1,
-          max_tokens: 2000,
-        })
-      });
-      clearTimeout(timer);
+    const visionModels = [
+      "google/gemini-2.5-flash",
+      "mistralai/pixtral-12b"
+    ];
 
-      if (res.ok) {
-        const data = await res.json();
-        const rawContent = data.choices?.[0]?.message?.content || "{}";
-        const result = safeParseDeepfake(rawContent, "openrouter/pixtral-large-latest");
-        result.exif = exifData;
-        console.log(`[Deepfake] OpenRouter fallback complete. Score: ${result.deepfake_score}, Face: ${result.face_detected}`);
-        return result;
-      } else {
-        const errText = await res.text();
-        console.warn("[Deepfake] OpenRouter fallback HTTP error:", res.status, errText);
+    for (const model of visionModels) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15_000);
+        const fullImageUrl = imageBase64; // Already data:image/...;base64,...
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openRouterKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": process.env.APP_URL || "https://verix.id",
+            "X-Title": "VERIX Deepfake Detection"
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: model,
+            messages: [{
+              role: "user",
+              content: [
+                { type: "image_url", image_url: { url: fullImageUrl } },
+                { type: "text", text: buildDeepfakePrompt(exifData) }
+              ]
+            }],
+            temperature: 0.1,
+            top_p: 0.1,
+            max_tokens: 2000,
+          })
+        });
+        clearTimeout(timer);
+
+        if (res.ok) {
+          const data = await res.json();
+          const rawContent = data.choices?.[0]?.message?.content || "{}";
+          const result = safeParseDeepfake(rawContent, `openrouter/${model}`);
+          result.exif = exifData;
+          console.log(`[Deepfake] OpenRouter fallback complete. Model: ${model}, Score: ${result.deepfake_score}, Face: ${result.face_detected}`);
+          return result;
+        } else {
+          const errText = await res.text();
+          console.warn(`[Deepfake] OpenRouter fallback HTTP error for model ${model}:`, res.status, errText);
+        }
+      } catch (e2) {
+        console.warn(`[Deepfake] OpenRouter fallback model ${model} failed:`, e2);
       }
-    } catch (e2) {
-      console.warn("[Deepfake] OpenRouter fallback also failed:", e2);
     }
   }
 

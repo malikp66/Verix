@@ -1,6 +1,7 @@
 import admin from 'firebase-admin';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getAuth, Auth } from 'firebase-admin/auth';
+import { getDatabase, Database } from 'firebase-admin/database';
 
 const DATABASE_ID = 'ai-studio-a3eb4718-a74c-46ae-98f6-3ac935199508';
 
@@ -16,6 +17,7 @@ function initAdmin() {
       const serviceAccount = JSON.parse(key);
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
+        databaseURL: "https://juaravibecoding-496905-default-rtdb.asia-southeast1.firebasedatabase.app/"
       });
     } catch (e) {
       console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY or initialize firebase-admin:", e);
@@ -70,6 +72,27 @@ export function adminDb(): Firestore {
         });
       }
     }) as unknown as Firestore;
+  }
+}
+
+export function adminRtdb(): Database {
+  initAdmin();
+  try {
+    return getDatabase();
+  } catch (e) {
+    console.warn("getDatabase() failed. Returning a dummy database reference.");
+    return new Proxy({} as any, {
+      get(target, prop) {
+        return () => ({
+          ref: () => ({
+            once: () => Promise.resolve({ val: () => null }),
+            set: () => Promise.resolve(),
+            update: () => Promise.resolve(),
+            transaction: () => Promise.resolve(),
+          })
+        });
+      }
+    }) as unknown as Database;
   }
 }
 

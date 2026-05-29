@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/FirebaseProvider';
+import { database } from '@/lib/firebase';
+import { ref, onValue } from 'firebase/database';
 
 const GUEST_MONTHLY_LIMIT = 10;
 const USER_FREE_CREDITS = 20;
@@ -33,22 +35,40 @@ export function useAICredits() {
 
     setIsCreditLoading(true);
 
-    user.getIdToken().then(async (token) => {
-      try {
-        const res = await fetch('/api/credits', {
-          headers: { authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (data.credits !== undefined) {
-          setCredits(data.credits);
+    const creditRef = ref(database, `users/${user.uid}/credits`);
+    const unsubscribe = onValue(
+      creditRef,
+      (snapshot) => {
+        const val = snapshot.val();
+        if (val !== null) {
+          setCredits(val);
         } else {
-          setCredits(USER_FREE_CREDITS);
+          // Fallback: If not in RTDB, fetch/init via API
+          user.getIdToken().then(async (token) => {
+            try {
+              const res = await fetch('/api/credits', {
+                headers: { authorization: `Bearer ${token}` },
+              });
+              const data = await res.json();
+              if (data.credits !== undefined) {
+                setCredits(data.credits);
+              } else {
+                setCredits(USER_FREE_CREDITS);
+              }
+            } catch {
+              setCredits(USER_FREE_CREDITS);
+            }
+          });
         }
-      } catch {
-        setCredits(USER_FREE_CREDITS);
+        setIsCreditLoading(false);
+      },
+      (error) => {
+        console.error('RTDB credits listener error:', error);
+        setIsCreditLoading(false);
       }
-      setIsCreditLoading(false);
-    });
+    );
+
+    return () => unsubscribe();
   }, [user, loading]);
 
   const consumeCredit = useCallback(async (amount: number = 1): Promise<boolean> => {

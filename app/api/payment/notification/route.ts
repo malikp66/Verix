@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
+import { adminDb, adminRtdb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import crypto from 'crypto';
 
@@ -45,8 +45,17 @@ export async function POST(request: NextRequest) {
           const { userId, credits } = orderData;
 
           if (userId && credits) {
+            const rtdb = adminRtdb();
+            const creditRef = rtdb.ref(`users/${userId}/credits`);
+            let finalCredits = 0;
+            await creditRef.transaction((current) => {
+              const val = current !== null ? current : 20;
+              finalCredits = val + credits;
+              return finalCredits;
+            });
+
             await db.collection('users').doc(userId).set({
-              aiCredits: FieldValue.increment(credits),
+              aiCredits: finalCredits,
             }, { merge: true });
           }
 
