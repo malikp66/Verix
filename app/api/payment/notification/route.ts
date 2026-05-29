@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,6 +10,12 @@ export async function POST(request: NextRequest) {
     const transactionStatus = body.transaction_status;
     const orderId = body.order_id as string;
     const fraudStatus = body.fraud_status;
+
+    // Verify Midtrans signature
+    if (!verifyMidtransSignature(body)) {
+      console.warn(`Invalid signature for notification: ${orderId}`);
+      return NextResponse.json({ status: 'invalid signature' }, { status: 400 });
+    }
 
     const isSuccess =
       (transactionStatus === 'capture' && fraudStatus === 'accept') ||
@@ -30,7 +37,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ status: 'ok' });
           }
 
-          // Idempotency: skip if already processed
           if (orderData.processed) {
             console.log(`Order ${orderId} already processed, skipping.`);
             return NextResponse.json({ status: 'ok' });
@@ -56,6 +62,7 @@ export async function POST(request: NextRequest) {
         }
       } catch (err) {
         console.error('Failed to process payment notification:', err);
+        return NextResponse.json({ status: 'retry' }, { status: 500 });
       }
     } else {
       console.log(`Midtrans notification: ${orderId} status=${transactionStatus}`);
@@ -66,4 +73,23 @@ export async function POST(request: NextRequest) {
     console.error('Midtrans notification error:', error);
     return NextResponse.json({ status: 'error' }, { status: 500 });
   }
+}
+
+function verifyMidtransSignature(body: Record<string, unknown>): boolean {
+  const orderId = body.order_id as string;
+  const statusCode = body.status_code as string;
+  const grossAmount = body.gross_amount as string;
+  const signatureKey = body.signature_key as string;
+  const serverKey = process.env.MIDTRANS_SERVER_KEY ?? '';
+
+  if (!orderId || !statusCode || !grossAmount || !signatureKey) {
+    return false;
+  }
+
+  const hash = crypto
+    .createHash('sha512')
+    .update(orderId + statusCode + grossAmount + serverKey)
+    .digest('hex');
+
+  return hash === signatureKey;
 }

@@ -1,44 +1,26 @@
-import { auth } from "@/lib/firebase";
-
-async function getToken(): Promise<string | null> {
-  if (!auth.currentUser) return null;
-  try {
-    return await auth.currentUser.getIdToken();
-  } catch {
-    return null;
-  }
-}
+import { adminDb } from "@/lib/firebase-admin";
 
 export async function getReportCount(merchantName: string): Promise<number> {
   try {
-    const token = await getToken();
-    if (!token) return 0;
-
-    const res = await fetch(`/api/qris/report?merchant=${encodeURIComponent(merchantName)}`, {
-      headers: { authorization: `Bearer ${token}` },
-    });
-
-    if (!res.ok) return 0;
-    const data = await res.json();
-    return data.reports || 0;
-  } catch {
+    const db = adminDb();
+    const snap = await db.collection("qris-blacklist").doc(merchantName).get();
+    return snap.data()?.count ?? 0;
+  } catch (e) {
+    console.error("[QRIS Store] Failed to get report count:", e);
     return 0;
   }
 }
 
 export async function incrementReport(merchantName: string): Promise<void> {
   try {
-    const token = await getToken();
-    if (!token) return;
-
-    await fetch('/api/qris/report', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        authorization: `Bearer ${token}`,
-      },
+    const res = await fetch("/api/qris/report", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ merchant: merchantName }),
     });
+    if (!res.ok) {
+      console.warn("[QRIS Store] Failed to increment report:", await res.text());
+    }
   } catch (e) {
     console.warn("[QRIS Store] Failed to increment report:", e);
   }

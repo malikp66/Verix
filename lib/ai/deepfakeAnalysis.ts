@@ -171,6 +171,7 @@ export async function analyzeDeepfake(imageBase64: string, exifData?: ExifTrace)
           }
         ],
         config: {
+          responseMimeType: "application/json",
           temperature: 0.1,
           topP: 0.1,
           maxOutputTokens: 2000,

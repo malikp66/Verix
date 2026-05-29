@@ -108,7 +108,6 @@ const SCAN_TABS = [
 ] as const;
 
 const tabColorMap = {
-  cyan:    { accent: '#06b6d4', accentDim: 'rgba(6,182,212,0.2)',  accentBg: 'rgba(6,182,212,0.1)' },
   rose:    { accent: '#f43f5e', accentDim: 'rgba(244,63,94,0.2)',  accentBg: 'rgba(244,63,94,0.1)' },
   purple:  { accent: '#a855f7', accentDim: 'rgba(168,85,247,0.2)', accentBg: 'rgba(168,85,247,0.1)' },
   amber:   { accent: '#f59e0b', accentDim: 'rgba(245,158,11,0.2)', accentBg: 'rgba(245,158,11,0.1)' },

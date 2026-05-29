@@ -86,7 +86,7 @@ export function useAICredits() {
     }
   }, [credits, user]);
 
-  const topUpCredits = useCallback(async (amount: number = 10): Promise<boolean> => {
+  const topUpCredits = useCallback(async (amount: number = 10, orderId?: string): Promise<boolean> => {
     if (!user) {
       const current = credits ?? GUEST_MONTHLY_LIMIT;
       const newCredits = current + amount;
@@ -100,7 +100,7 @@ export function useAICredits() {
       const res = await fetch('/api/credits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
-        body: JSON.stringify({ action: 'topup', amount }),
+        body: JSON.stringify({ action: 'topup', amount, orderId }),
       });
 
       if (!res.ok) return false;
@@ -110,7 +110,6 @@ export function useAICredits() {
       return true;
     } catch (e) {
       console.error('Failed to top up credits:', e);
-      setCredits(prev => (prev !== null ? prev + amount : amount));
       return false;
     }
   }, [credits, user]);

@@ -42,7 +42,7 @@ interface CreditTopUpModalProps {
   isOpen: boolean;
   onClose: () => void;
   user: Record<string, unknown> | null;
-  topUpCredits: (amount: number) => Promise<boolean>;
+  topUpCredits: (amount: number, orderId?: string) => Promise<boolean>;
   credits?: number | null;
   onLogin?: () => void;
 }
@@ -94,7 +94,7 @@ export function CreditTopUpModal({
         throw new Error(data.error || 'Payment gateway error');
       }
 
-      const { snapToken } = data;
+      const { snapToken, orderId } = data;
 
       if (!snapToken || typeof window === 'undefined' || !window.snap) {
         throw new Error('Midtrans SDK tidak tersedia. Silakan refresh halaman.');
@@ -102,12 +102,42 @@ export function CreditTopUpModal({
 
       window.snap.pay(snapToken, {
         onSuccess: async () => {
-          await topUpCredits(selected.credits);
-          setPaymentSuccess(true);
-          setTimeout(() => {
-            setPaymentSuccess(false);
-            onClose();
-          }, 2500);
+          const ok = await topUpCredits(selected.credits, orderId);
+          if (ok) {
+            setPaymentSuccess(true);
+            setTimeout(() => {
+              setPaymentSuccess(false);
+              onClose();
+            }, 2500);
+          } else {
+            // topUpCredits failed — webhook may still process; poll for credits
+            let attempts = 0;
+            const poll = async () => {
+              attempts++;
+              try {
+                const token = await (user as { getIdToken: () => Promise<string> }).getIdToken();
+                const res = await fetch('/api/credits', {
+                  headers: { authorization: `Bearer ${token}` },
+                });
+                const data = await res.json();
+                if (data.credits !== undefined && data.credits > (credits ?? 0)) {
+                  setPaymentSuccess(true);
+                  setTimeout(() => {
+                    setPaymentSuccess(false);
+                    onClose();
+                  }, 2500);
+                  return;
+                }
+              } catch {}
+              if (attempts < 15) {
+                setTimeout(poll, 1000);
+              } else {
+                setIsProcessing(false);
+                setPaymentError('Pembayaran berhasil, tapi kredit butuh waktu beberapa menit. Silakan refresh halaman.');
+              }
+            };
+            setTimeout(poll, 1000);
+          }
         },
         onPending: () => {
           setIsProcessing(false);
