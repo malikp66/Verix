@@ -21,6 +21,14 @@ function initAdmin() {
         cleanedKey = cleanedKey.slice(1, -1);
       }
 
+      // Safe JSON parsing for private keys with literal newlines in .env
+      cleanedKey = cleanedKey.replace(
+        /("private_key"\s*:\s*")([\s\S]*?)(")/g,
+        (match, p1, p2, p3) => {
+          return p1 + p2.replace(/\r/g, '').replace(/\n/g, '\\n') + p3;
+        }
+      );
+
       const serviceAccount = JSON.parse(cleanedKey);
 
       if (serviceAccount.private_key) {
