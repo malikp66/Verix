@@ -57,6 +57,7 @@ export function normalizeProvinceName(title: string): string {
 export function IndonesiaMap({ theme, markers = [], className = '', onHoverProvince, provinceScores }: IndonesiaMapProps) {
   const [hoveredProvince, setHoveredProvince] = useState<{ title: string; x: number; y: number } | null>(null);
   const [pathsData, setPathsData] = useState<PathData[]>([]);
+  const [zoomState, setZoomState] = useState<{ x: number; y: number; scale: number; provinceTitle: string } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,6 +66,23 @@ export function IndonesiaMap({ theme, markers = [], className = '', onHoverProvi
       .then(data => setPathsData(data))
       .catch(() => setPathsData([]));
   }, []);
+
+  const handlePathClick = (e: React.MouseEvent<SVGPathElement>, path: PathData) => {
+    e.stopPropagation();
+    if (zoomState && zoomState.provinceTitle === path.title) {
+      setZoomState(null);
+      return;
+    }
+    const bbox = e.currentTarget.getBBox();
+    const centerX = bbox.x + bbox.width / 2;
+    const centerY = bbox.y + bbox.height / 2;
+    setZoomState({
+      x: centerX,
+      y: centerY,
+      scale: 2.2,
+      provinceTitle: path.title,
+    });
+  };
 
   // Styling properties depending on theme and threat severity score
   const getProvinceColors = (isIndonesian: boolean, isHovered: boolean, provinceTitle: string) => {
@@ -151,6 +169,8 @@ export function IndonesiaMap({ theme, markers = [], className = '', onHoverProvi
     setHoveredProvince({ title: path.title, x, y });
   };
 
+  const activeScale = zoomState ? zoomState.scale : 1;
+
   return (
     <div ref={containerRef} className={`relative w-full h-full select-none ${className}`}>
       {/* Interactive Map SVG */}
@@ -158,134 +178,183 @@ export function IndonesiaMap({ theme, markers = [], className = '', onHoverProvi
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="w-full h-full outline-none"
         xmlns="http://www.w3.org/2000/svg"
+        onClick={() => setZoomState(null)}
       >
-        {/* Render Map Paths */}
-        {(pathsData as PathData[]).map((path) => {
-          const isIndonesian = path.id.startsWith('ID-');
-          const isHovered = hoveredProvince?.title === path.title;
-          const styles = getProvinceColors(isIndonesian, isHovered, path.title);
-          
-          let filterVal = 'none';
-          if (isIndonesian) {
-            const normName = normalizeProvinceName(path.title);
-            const stats = provinceScores?.[normName];
+        <g
+          style={{
+            transform: zoomState
+              ? `translate(${WIDTH / 2 - zoomState.x * zoomState.scale}px, ${HEIGHT / 2 - zoomState.y * zoomState.scale}px) scale(${zoomState.scale})`
+              : 'translate(0px, 0px) scale(1)',
+            transformOrigin: '0px 0px',
+            transition: 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
+          {/* Render Map Paths */}
+          {(pathsData as PathData[]).map((path) => {
+            const isIndonesian = path.id.startsWith('ID-');
+            const isHovered = hoveredProvince?.title === path.title;
+            const styles = getProvinceColors(isIndonesian, isHovered, path.title);
             
-            if (isHovered) {
-              const glowColor = (styles as any).glowColor || (theme === 'green' ? '#B6FF3B' : '#22D3EE');
-              filterVal = `drop-shadow(0 0 6px ${glowColor}c0)`;
-            } else if (stats && stats.score >= 7) {
-              filterVal = `drop-shadow(0 0 4px rgba(239, 68, 68, 0.45))`;
-            } else if (stats && stats.score >= 5) {
-              filterVal = `drop-shadow(0 0 3px rgba(245, 158, 11, 0.25))`;
+            let filterVal = 'none';
+            if (isIndonesian) {
+              const normName = normalizeProvinceName(path.title);
+              const stats = provinceScores?.[normName];
+              
+              if (isHovered) {
+                const glowColor = (styles as any).glowColor || (theme === 'green' ? '#B6FF3B' : '#22D3EE');
+                filterVal = `drop-shadow(0 0 6px ${glowColor}c0)`;
+              } else if (stats && stats.score >= 7) {
+                filterVal = `drop-shadow(0 0 4px rgba(239, 68, 68, 0.45))`;
+              } else if (stats && stats.score >= 5) {
+                filterVal = `drop-shadow(0 0 3px rgba(245, 158, 11, 0.25))`;
+              }
             }
-          }
 
-          return (
-            <path
-              key={path.id}
-              d={path.d}
-              id={path.id}
-              fill={styles.fill}
-              stroke={styles.stroke}
-              strokeWidth={styles.strokeWidth}
-              className={`transition-all duration-300 ${
-                isIndonesian ? 'cursor-pointer hover:opacity-90' : 'pointer-events-none'
-              }`}
-              style={{
-                filter: filterVal,
-              }}
-              onMouseEnter={(e) => {
-                if (isIndonesian) {
-                  handlePathMouseMove(e, path);
-                  onHoverProvince?.(path.title);
-                }
-              }}
-              onMouseMove={(e) => {
-                if (isIndonesian) {
-                  handlePathMouseMove(e, path);
-                }
-              }}
-              onMouseLeave={() => {
-                if (isIndonesian) {
-                  setHoveredProvince(null);
-                  onHoverProvince?.(null);
-                }
-              }}
-            />
-          );
-        })}
-
-        {/* Render Threat Markers */}
-        {markers.map((marker) => {
-          const [x, y] = getXYCoords(marker.longitude, marker.latitude);
-          const weight = marker.weight ?? 1.0;
-          
-          // Style markers depending on severity
-          let markerColor = '#ffd03b';
-          let ringColor = 'rgba(255,208,59,0.2)';
-          if (marker.severity === 'CRITICAL') {
-            markerColor = '#ff4f4f';
-            ringColor = 'rgba(255,79,79,0.3)';
-          } else if (marker.severity === 'HIGH') {
-            markerColor = '#ff9a3c';
-            ringColor = 'rgba(255,154,60,0.25)';
-          }
-
-          return (
-            <g
-              key={marker.id}
-              transform={`translate(${x}, ${y})`}
-              className="cursor-pointer select-none group"
-              onMouseEnter={marker.onMouseEnter}
-              onMouseLeave={marker.onMouseLeave}
-              onClick={marker.onClick}
-            >
-              {/* Outer static ring */}
-              <circle
-                r={12 * weight}
-                fill="none"
-                stroke={markerColor}
-                strokeWidth={1}
+            return (
+              <path
+                key={path.id}
+                d={path.d}
+                id={path.id}
+                fill={styles.fill}
+                stroke={styles.stroke}
+                strokeWidth={styles.strokeWidth / activeScale}
+                className={`transition-all duration-300 ${
+                  isIndonesian ? 'cursor-pointer hover:opacity-90' : 'pointer-events-none'
+                }`}
                 style={{
-                  opacity: 0.25 * weight,
+                  filter: filterVal,
+                }}
+                onClick={(e) => {
+                  if (isIndonesian) {
+                    handlePathClick(e, path);
+                  }
+                }}
+                onMouseEnter={(e) => {
+                  if (isIndonesian) {
+                    handlePathMouseMove(e, path);
+                    onHoverProvince?.(path.title);
+                  }
+                }}
+                onMouseMove={(e) => {
+                  if (isIndonesian) {
+                    handlePathMouseMove(e, path);
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (isIndonesian) {
+                    setHoveredProvince(null);
+                    onHoverProvince?.(null);
+                  }
                 }}
               />
-              {/* Inner static ring */}
-              <circle
-                r={7 * weight}
-                fill={markerColor}
-                style={{
-                  opacity: 0.15 * weight,
-                }}
-              />
-              {/* Core threat node */}
-              <circle
-                r={4 * weight}
-                fill={markerColor}
-                stroke="#030303"
-                strokeWidth={1}
-                className="transition-transform duration-200 group-hover:scale-125"
-                style={{ opacity: weight }}
-              />
+            );
+          })}
 
-              {/* Optional label */}
-              {marker.label && (
-                <text
-                  textAnchor="middle"
-                  y={-12}
-                  className="font-mono text-[9px] pointer-events-none select-none font-bold tracking-tight"
+          {/* Render Threat Markers */}
+          {markers.map((marker) => {
+            const [x, y] = getXYCoords(marker.longitude, marker.latitude);
+            const weight = marker.weight ?? 1.0;
+            
+            // Style markers depending on severity
+            let markerColor = '#ffd03b';
+            let ringColor = 'rgba(255,208,59,0.2)';
+            if (marker.severity === 'CRITICAL') {
+              markerColor = '#ff4f4f';
+              ringColor = 'rgba(255,79,79,0.3)';
+            } else if (marker.severity === 'HIGH') {
+              markerColor = '#ff9a3c';
+              ringColor = 'rgba(255,154,60,0.25)';
+            }
+
+            return (
+              <g
+                key={marker.id}
+                transform={`translate(${x}, ${y})`}
+                className="cursor-pointer select-none group"
+                onMouseEnter={marker.onMouseEnter}
+                onMouseLeave={marker.onMouseLeave}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  marker.onClick?.();
+                }}
+              >
+                {/* Outer static ring */}
+                <circle
+                  r={(12 * weight) / activeScale}
+                  fill="none"
+                  stroke={markerColor}
+                  strokeWidth={1 / activeScale}
                   style={{
-                    fill: markerColor,
-                    textShadow: '0px 1px 2px rgba(0,0,0,0.9)',
+                    opacity: 0.25 * weight,
                   }}
-                >
-                  {marker.label}
-                </text>
-              )}
-            </g>
-          );
-        })}
+                />
+                {/* Inner static ring */}
+                <circle
+                  r={(7 * weight) / activeScale}
+                  fill={markerColor}
+                  style={{
+                    opacity: 0.15 * weight,
+                  }}
+                />
+                {/* Core threat node */}
+                <circle
+                  r={(4 * weight) / activeScale}
+                  fill={markerColor}
+                  stroke="#030303"
+                  strokeWidth={1 / activeScale}
+                  className="transition-transform duration-200 group-hover:scale-125"
+                  style={{ opacity: weight }}
+                />
+
+                {/* Optional label */}
+                {marker.label && (
+                  <text
+                    textAnchor="middle"
+                    y={-12 / activeScale}
+                    className="font-mono pointer-events-none select-none font-bold tracking-tight"
+                    style={{
+                      fontSize: `${9 / activeScale}px`,
+                      fill: markerColor,
+                      textShadow: '0px 1px 2px rgba(0,0,0,0.9)',
+                    }}
+                  >
+                    {marker.label}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </g>
       </svg>
+
+      {/* Floating Zoom Reset Button */}
+      {zoomState && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setZoomState(null);
+          }}
+          className="absolute bottom-4 right-4 z-40 px-3 py-1.5 rounded-lg bg-neutral-950/85 hover:bg-neutral-900 border border-neutral-800 text-[10px] font-mono font-semibold tracking-wider text-neutral-300 hover:text-white transition-all shadow-lg flex items-center gap-1.5 backdrop-blur-md cursor-pointer"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M15 3h6v6" />
+            <path d="M9 21H3v-6" />
+            <path d="M21 3l-7 7" />
+            <path d="M3 21l7-7" />
+          </svg>
+          RESET ZOOM ({zoomState.provinceTitle.toUpperCase()})
+        </button>
+      )}
 
       {/* Floating Province Glassmorphic Info Card Tooltip */}
       {hoveredProvince && (() => {

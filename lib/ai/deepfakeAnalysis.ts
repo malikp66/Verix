@@ -104,8 +104,8 @@ FIELD DEFINITIONS:
 - summary: One-sentence verdict.`;
 }
 
-function safeParseDeepfake(raw: string, modelName: string): DeepfakeResult {
-  const cleaned = raw.replace(/```json\n?|\n?```/g, "").trim();
+function safeParseDeepfake(rawContent: string, modelName: string): DeepfakeResult | null {
+  const cleaned = rawContent.replace(/```json\n?|\n?```/g, "").trim();
 
   let parsed: any = null;
   try {
@@ -129,7 +129,7 @@ function safeParseDeepfake(raw: string, modelName: string): DeepfakeResult {
     try { parsed = JSON.parse(repaired); } catch { parsed = null; }
   }
 
-  if (!parsed) return { ...DEEPFAKE_DEFAULTS, _ai_model_used: modelName };
+  if (!parsed) return null;
 
   return {
     deepfake_score: typeof parsed.deepfake_score === 'number' ? Math.max(0, Math.min(100, parsed.deepfake_score)) : 0,
@@ -180,10 +180,11 @@ export async function analyzeDeepfake(imageBase64: string, exifData?: ExifTrace)
 
       const rawContent = response.text || "{}";
       const result = safeParseDeepfake(rawContent, "native/gemini-2.5-flash");
-      result.exif = exifData;
-      console.log(`[Deepfake] Analysis complete. Score: ${result.deepfake_score}, Face: ${result.face_detected}`);
-      return result;
-
+      if (result) {
+        result.exif = exifData;
+        console.log(`[Deepfake] Analysis complete. Score: ${result.deepfake_score}, Face: ${result.face_detected}`);
+        return result;
+      }
     } catch (e) {
       console.warn("[Deepfake] Native Gemini SDK failed:", e);
     }
@@ -193,8 +194,8 @@ export async function analyzeDeepfake(imageBase64: string, exifData?: ExifTrace)
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   if (openRouterKey) {
     const visionModels = [
-      "google/gemini-2.5-flash",
-      "mistralai/pixtral-12b"
+      "meta-llama/llama-3.2-11b-vision-instruct",
+      "meta-llama/llama-3.2-90b-vision-instruct"
     ];
 
     for (const model of visionModels) {
@@ -213,6 +214,7 @@ export async function analyzeDeepfake(imageBase64: string, exifData?: ExifTrace)
           signal: controller.signal,
           body: JSON.stringify({
             model: model,
+            route: "fallback",
             messages: [{
               role: "user",
               content: [
@@ -231,9 +233,13 @@ export async function analyzeDeepfake(imageBase64: string, exifData?: ExifTrace)
           const data = await res.json();
           const rawContent = data.choices?.[0]?.message?.content || "{}";
           const result = safeParseDeepfake(rawContent, `openrouter/${model}`);
-          result.exif = exifData;
-          console.log(`[Deepfake] OpenRouter fallback complete. Model: ${model}, Score: ${result.deepfake_score}, Face: ${result.face_detected}`);
-          return result;
+          if (result) {
+            result.exif = exifData;
+            console.log(`[Deepfake] OpenRouter fallback complete. Model: ${model}, Score: ${result.deepfake_score}, Face: ${result.face_detected}`);
+            return result;
+          } else {
+            console.warn(`[Deepfake] Model ${model} response parsed to null (malformed), attempting fallback...`);
+          }
         } else {
           const errText = await res.text();
           console.warn(`[Deepfake] OpenRouter fallback HTTP error for model ${model}:`, res.status, errText);

@@ -3,8 +3,7 @@ import crypto from 'crypto';
 import { cacheGet, cacheSet } from "@/lib/redis";
 
 const OPENROUTER_MODELS = [
-  "deepseek/deepseek-chat",
-  "google/gemini-2.5-flash"
+  "deepseek/deepseek-chat"
 ];
 
 const DEEPSEEK_TIMEOUT_MS = 15_000;
@@ -140,6 +139,7 @@ export async function generateAIExplanation(prompt: string, schemaDefinition: an
           signal: controller?.signal,
           body: JSON.stringify({
             model: model,
+            route: "fallback",
             messages: [{ role: "user", content: enrichedPrompt }],
             temperature: 0,
             top_p: 0.1,

@@ -1,75 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useAuth } from '@/components/FirebaseProvider';
-import { database } from '@/lib/firebase';
-import { ref, onValue } from 'firebase/database';
 
 const GUEST_MONTHLY_LIMIT = 10;
-const USER_FREE_CREDITS = 20;
-const FREE_MONTHLY_CREDITS = 10;
 
 export function useAICredits() {
-  const { user, loading } = useAuth();
-  const [credits, setCredits] = useState<number | null>(null);
-  const [isCreditLoading, setIsCreditLoading] = useState(true);
+  const { user, credits, setCredits, isCreditLoading } = useAuth();
 
   const maxCredits = user ? 999 : GUEST_MONTHLY_LIMIT;
-
-  useEffect(() => {
-    if (loading) return;
-
-    if (!user) {
-      const stored = localStorage.getItem('verix_guest_credits');
-      const lastReset = localStorage.getItem('verix_guest_reset_month');
-      const currentMonth = new Date().toISOString().slice(0, 7);
-
-      if (lastReset !== currentMonth || !stored) {
-        localStorage.setItem('verix_guest_credits', GUEST_MONTHLY_LIMIT.toString());
-        localStorage.setItem('verix_guest_reset_month', currentMonth);
-        setCredits(GUEST_MONTHLY_LIMIT);
-      } else {
-        setCredits(parseInt(stored, 10));
-      }
-      setIsCreditLoading(false);
-      return;
-    }
-
-    setIsCreditLoading(true);
-
-    const creditRef = ref(database, `users/${user.uid}/credits`);
-    const unsubscribe = onValue(
-      creditRef,
-      (snapshot) => {
-        const val = snapshot.val();
-        if (val !== null) {
-          setCredits(val);
-        } else {
-          // Fallback: If not in RTDB, fetch/init via API
-          user.getIdToken().then(async (token) => {
-            try {
-              const res = await fetch('/api/credits', {
-                headers: { authorization: `Bearer ${token}` },
-              });
-              const data = await res.json();
-              if (data.credits !== undefined) {
-                setCredits(data.credits);
-              } else {
-                setCredits(USER_FREE_CREDITS);
-              }
-            } catch {
-              setCredits(USER_FREE_CREDITS);
-            }
-          });
-        }
-        setIsCreditLoading(false);
-      },
-      (error) => {
-        console.error('RTDB credits listener error:', error);
-        setIsCreditLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [user, loading]);
 
   const consumeCredit = useCallback(async (amount: number = 1): Promise<boolean> => {
     if (credits === null || credits < amount) return false;
@@ -104,7 +41,7 @@ export function useAICredits() {
       console.error('Failed to consume credits:', e);
       return false;
     }
-  }, [credits, user]);
+  }, [credits, user, setCredits]);
 
   const topUpCredits = useCallback(async (amount: number = 10, orderId?: string): Promise<boolean> => {
     if (!user) {
@@ -132,7 +69,7 @@ export function useAICredits() {
       console.error('Failed to top up credits:', e);
       return false;
     }
-  }, [credits, user]);
+  }, [credits, user, setCredits]);
 
   return { credits, maxCredits, isCreditLoading, consumeCredit, topUpCredits };
 }

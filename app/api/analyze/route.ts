@@ -399,8 +399,8 @@ export async function POST(req: NextRequest) {
         
         if (imageDataUrl) {
           const visionModels = [
-            "google/gemini-2.5-flash",
-            "mistralai/pixtral-12b"
+            "meta-llama/llama-3.2-11b-vision-instruct",
+            "meta-llama/llama-3.2-90b-vision-instruct"
           ];
 
           for (const model of visionModels) {
@@ -415,6 +415,7 @@ export async function POST(req: NextRequest) {
                 },
                 body: JSON.stringify({
                   model: model,
+                  route: "fallback",
                   messages: [{
                     role: "user",
                     content: [

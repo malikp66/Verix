@@ -1,8 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
 const OPENROUTER_MODELS = [
-  "deepseek/deepseek-chat",
-  "google/gemini-2.5-flash"
+  "deepseek/deepseek-chat"
 ];
 
 const DEEPSEEK_TIMEOUT_MS = 15_000;
@@ -115,6 +114,7 @@ export async function enrichFileAnalysis(input: FileAiInput): Promise<FileAiOutp
           signal: controller?.signal,
           body: JSON.stringify({
             model,
+            route: "fallback",
             messages: [{ role: "user", content: enrichedPrompt }],
             temperature: 0.3,
             max_tokens: 800,
