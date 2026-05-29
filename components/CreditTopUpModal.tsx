@@ -77,6 +77,28 @@ export function CreditTopUpModal({
     setPaymentError(null);
 
     try {
+      // Fetch Midtrans config dynamically at runtime
+      const configRes = await fetch('/api/config');
+      if (!configRes.ok) {
+        throw new Error('Gagal memuat konfigurasi pembayaran.');
+      }
+      const config = await configRes.json();
+
+      // Load Midtrans Script tag dynamically at runtime
+      await new Promise<void>((resolve, reject) => {
+        if (typeof window === 'undefined') return resolve();
+        if ((window as any).snap) return resolve();
+
+        const script = document.createElement('script');
+        script.src = config.isProduction
+          ? 'https://app.midtrans.com/snap/snap.js'
+          : 'https://app.sandbox.midtrans.com/snap/snap.js';
+        script.setAttribute('data-client-key', config.clientKey);
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Gagal memuat modul pembayaran Midtrans.'));
+        document.body.appendChild(script);
+      });
+
       const res = await fetch('/api/payment/create-transaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -96,11 +118,11 @@ export function CreditTopUpModal({
 
       const { snapToken, orderId } = data;
 
-      if (!snapToken || typeof window === 'undefined' || !window.snap) {
+      if (!snapToken || typeof window === 'undefined' || !(window as any).snap) {
         throw new Error('Midtrans SDK tidak tersedia. Silakan refresh halaman.');
       }
 
-      window.snap.pay(snapToken, {
+      (window as any).snap.pay(snapToken, {
         onSuccess: async () => {
           const ok = await topUpCredits(selected.credits, orderId);
           if (ok) {

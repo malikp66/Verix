@@ -1,6 +1,5 @@
 import type {Metadata, Viewport} from 'next';
 import { Inter, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
-import Script from 'next/script';
 import './globals.css';
 import { FirebaseProvider } from '@/components/FirebaseProvider';
 
@@ -37,16 +36,6 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
         <FirebaseProvider>
           {children}
         </FirebaseProvider>
-        <Script
-          src={
-            (process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true' || 
-             (process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY && !process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY.startsWith('SB-')))
-              ? 'https://app.midtrans.com/snap/snap.js'
-              : 'https://app.sandbox.midtrans.com/snap/snap.js'
-          }
-          data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
-          strategy="afterInteractive"
-        />
       </body>
     </html>
   );
