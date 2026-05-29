@@ -40,8 +40,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ uid, email, name, picture });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Auth login error:', error);
-    return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    return NextResponse.json({ error: error.message || 'Invalid token' }, { status: 401 });
   }
 }
